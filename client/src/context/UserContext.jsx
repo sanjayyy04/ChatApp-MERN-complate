@@ -31,11 +31,7 @@ const UserProvider = ({ children }) => {
   }, []);
 
   const logout = async () => {
-    await axios.post(
-      `${API_URL}/api/logout`,
-      {},
-      { withCredentials: true },
-    );
+    await axios.post(`${API_URL}/api/logout`, {}, { withCredentials: true });
     setUser(null);
     navigate("/reg");
   };

@@ -22,10 +22,7 @@ const RegForm = () => {
 
   const handleRegister = async () => {
     try {
-      const response = await axios.post(
-        `${API_URL}/api/create`,
-        formData,
-      );
+      const response = await axios.post(`${API_URL}/api/create`, formData);
       toast.success(response.data.message);
       setIsRegistering(false);
     } catch (error) {
@@ -35,16 +32,13 @@ const RegForm = () => {
   };
   const handleLogin = async () => {
     try {
-      const response = await axios.post(
-        `${API_URL}/api/login`,
-        formData,
-        { withCredentials: true },
-      );
+      const response = await axios.post(`${API_URL}/api/login`, formData, {
+        withCredentials: true,
+      });
 
-      const profileResponse = await axios.get(
-        `${API_URL}/api/profile`,
-        { withCredentials: true },
-      );
+      const profileResponse = await axios.get(`${API_URL}/api/profile`, {
+        withCredentials: true,
+      });
 
       toast.success(response.data.message);
       setUser(profileResponse.data.data);

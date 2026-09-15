@@ -23,9 +23,7 @@ const Users = () => {
     if (!confirmDelete) return;
 
     try {
-      const response = await axios.delete(
-        `${API_URL}/api/users/${id}`,
-      );
+      const response = await axios.delete(`${API_URL}/api/users/${id}`);
 
       if (response.status === 200) {
         setUsers((prevUsers) => prevUsers.filter((user) => user._id !== id));
