@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const router = require('./routes/user.routes.js');
 const { urlencoded } = require('express');
@@ -8,13 +9,13 @@ const cookieParser = require('cookie-parser');
 
 const connectToDatabase = async () => {
     try {
-        await mongoose.connect('mongodb+srv://smchauhan2004_db_user:iblI4JrkvOUxXmG9@cluster0.pyelxx0.mongodb.net/?appName=Cluster0', {
+        await mongoose.connect(process.env.MONGODB_URI, {
             serverSelectionTimeoutMS: 10000
         });
         console.log('Connected to MongoDB');
 
         const app = express()
-        const port = 3000
+        const port = process.env.PORT || 3000
 
         app.use(express.json());
         app.use(urlencoded({ extended: true }));

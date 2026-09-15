@@ -112,7 +112,7 @@ const loginController = async (req, res) => {
                     name: existingUser.name,
                     email: existingUser.email
                 },
-                "your_secret_key",
+                process.env.JWT_SECRET,
                 { expiresIn: "1h" }
             );
 
@@ -164,7 +164,7 @@ const getProfileController = (req, res) => {
     }
 
     try {
-        const decoded = jwt.verify(token, "your_secret_key");
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
         return res.status(200).json({
             message: "Profile fetched successfully",
