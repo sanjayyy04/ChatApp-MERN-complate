@@ -6,6 +6,7 @@ import "../App.css";
 import axios from "axios";
 import { toast } from "react-toastify";
 import { UserContext } from "../context/UserContext";
+import { API_URL } from "../api";
 
 const RegForm = () => {
   const { setUser } = useContext(UserContext);
@@ -22,7 +23,7 @@ const RegForm = () => {
   const handleRegister = async () => {
     try {
       const response = await axios.post(
-        "http://localhost:3000/api/create",
+        `${API_URL}/api/create`,
         formData,
       );
       toast.success(response.data.message);
@@ -35,13 +36,13 @@ const RegForm = () => {
   const handleLogin = async () => {
     try {
       const response = await axios.post(
-        "http://localhost:3000/api/login",
+        `${API_URL}/api/login`,
         formData,
         { withCredentials: true },
       );
 
       const profileResponse = await axios.get(
-        "http://localhost:3000/api/profile",
+        `${API_URL}/api/profile`,
         { withCredentials: true },
       );
 

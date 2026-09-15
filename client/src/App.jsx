@@ -6,9 +6,11 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "./App.css";
 
+const basename = import.meta.env.BASE_URL;
+
 const App = () => {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={basename}>
       <UserProvider>
         <div className="container">
           <Nav />

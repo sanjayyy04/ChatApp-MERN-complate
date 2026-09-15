@@ -1,13 +1,14 @@
 import React, { useContext, useEffect } from "react";
 import axios from "axios";
 import { UserContext } from "../context/UserContext";
+import { API_URL } from "../api";
 
 const Users = () => {
   const { users, setUsers } = useContext(UserContext);
 
   async function getUsers() {
     try {
-      const response = await axios.get("http://localhost:3000/api/users");
+      const response = await axios.get(`${API_URL}/api/users`);
       setUsers(response.data.data);
     } catch (error) {
       console.log("There was an error while fetching the users", error);
@@ -23,7 +24,7 @@ const Users = () => {
 
     try {
       const response = await axios.delete(
-        `http://localhost:3000/api/users/${id}`,
+        `${API_URL}/api/users/${id}`,
       );
 
       if (response.status === 200) {
