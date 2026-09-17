@@ -21,7 +21,12 @@ const connectToDatabase = async () => {
         app.use(urlencoded({ extended: true }));
         app.use(cookieParser());
         app.use(cors({
-            origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+            origin: [
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+                "http://localhost:8080",
+                "http://127.0.0.1:8080"
+            ],
             credentials: true
         }));
 

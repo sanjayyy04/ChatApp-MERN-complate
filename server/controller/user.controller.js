@@ -10,7 +10,7 @@ const helloWorld = (req, res) => {
 const createUser = async (req, res) => {
     const { userName, name, phone, email, password } = req.body;
     // Check if user already exists
-    const existingUser = await user.findOne({ phone, email, userName });
+    const existingUser = await user.findOne({ phone, userName });
 
     if (existingUser) {
         return res.status(400).json({
@@ -40,10 +40,30 @@ const createUser = async (req, res) => {
 
 const getAllUsers = async (req, res) => {
 
-    const users = await user.find();
+    const users = await user.find().select("-password");
 
     res.status(200).json({
         message: "Users retrieved successfully",
+        data: users
+    });
+};
+
+const searchUsers = async (req, res) => {
+    const username = req.query.username?.trim();
+
+    if (!username) {
+        return res.status(400).json({
+            message: "Username is required"
+        });
+    }
+
+    const users = await user.find({
+        userName: { $regex: username, $options: "i" },
+        _id: { $ne: req.user._id }
+    }).select("-password").limit(20);
+
+    return res.status(200).json({
+        message: "Users found successfully",
         data: users
     });
 };
@@ -52,7 +72,13 @@ const getUserById = async (req, res) => {
     const { id } = req.params;
 
     try {
-        const userById = await user.findById(id);
+        const userById = await user.findById(id).select("-password");
+
+        if (!userById) {
+            return res.status(404).json({
+                message: "User not found"
+            });
+        }
         res.status(200).json({
             message: "User retrieved successfully",
             data: userById
@@ -155,35 +181,10 @@ const logoutController = (req, res) => {
 };
 
 const getProfileController = (req, res) => {
-    const token = req.cookies?.token;
-
-    if (!token) {
-        return res.status(401).json({
-            message: "Unauthorized. Please login first."
-        });
-    }
-
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-        return res.status(200).json({
-            message: "Profile fetched successfully",
-            data: {
-                id: decoded.id,
-                userName: decoded.userName,
-                name: decoded.name,
-                email: decoded.email,
-                phone: decoded.phone,
-                createdAt: decoded.createdAt,
-                updatedAt: decoded.updatedAt
-            }
-        });
-    } catch (error) {
-        return res.status(401).json({
-            message: "Invalid or expired token",
-            error: error.message
-        });
-    }
+    return res.status(200).json({
+        message: "Profile fetched successfully",
+        data: req.user,
+    });
 };
 
-module.exports = { helloWorld, createUser, getAllUsers, getUserById, deleteUserById, loginController, logoutController, getProfileController };
+module.exports = { helloWorld, createUser, getAllUsers, searchUsers, getUserById, deleteUserById, loginController, logoutController, getProfileController };

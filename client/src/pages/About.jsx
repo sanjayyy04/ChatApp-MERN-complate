@@ -1,9 +1,14 @@
-import React from "react";
+import PageHero from "../components/PageHero";
 
 const About = () => {
   return (
-    <div>
-      <h1>About page</h1>
+    <div className="page-shell">
+      <PageHero
+        eyebrow="Our space"
+        title="Built for genuine connection"
+        description="Chat App keeps your community simple, personal, and easy to navigate."
+        current="About"
+      />
     </div>
   );
 };

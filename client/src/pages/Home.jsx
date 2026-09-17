@@ -1,9 +1,13 @@
-import React from "react";
+import PageHero from "../components/PageHero";
 
 const Home = () => {
   return (
-    <div>
-      <h1>Home Page</h1>
+    <div className="page-shell">
+      <PageHero
+        title="A quieter way to stay connected"
+        description="Keep conversations, people, and everyday updates in one welcoming space."
+        current="Home"
+      />
     </div>
   );
 };
