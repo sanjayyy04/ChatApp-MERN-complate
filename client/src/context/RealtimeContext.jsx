@@ -46,6 +46,7 @@ const RealtimeProvider = ({ children }) => {
   const [pendingRequestCount, setPendingRequestCount] = useState(0);
   const [friendMap, setFriendMap] = useState({});
   const friendMapRef = useRef(friendMap);
+  const typingTimersRef = useRef({});
 
   useEffect(() => {
     friendMapRef.current = friendMap;
@@ -137,6 +138,10 @@ const RealtimeProvider = ({ children }) => {
 
   const markNotificationsRead = useCallback(() => {
     setNotifications((current) => current.map((item) => ({ ...item, read: true })));
+  }, []);
+
+  const dismissNotification = useCallback((notificationId) => {
+    setNotifications((current) => current.filter((item) => item.id !== notificationId));
   }, []);
 
   const handleNotificationAction = useCallback((notification) => {
@@ -237,6 +242,10 @@ const RealtimeProvider = ({ children }) => {
 
     const onTypingStatus = ({ userId, typing }) => {
       const id = String(userId);
+      if (typingTimersRef.current[id]) {
+        clearTimeout(typingTimersRef.current[id]);
+        delete typingTimersRef.current[id];
+      }
       setTypingUsers((current) => {
         if (!typing) {
           if (!current[id]) return current;
@@ -246,6 +255,26 @@ const RealtimeProvider = ({ children }) => {
         }
         return { ...current, [id]: true };
       });
+      if (typing) {
+        typingTimersRef.current[id] = setTimeout(() => {
+          setTypingUsers((current) => {
+            if (!current[id]) return current;
+            const next = { ...current };
+            delete next[id];
+            return next;
+          });
+          delete typingTimersRef.current[id];
+        }, 4000);
+      }
+    };
+
+    const onUserUpdated = ({ user: updatedUser }) => {
+      if (!updatedUser?._id) return;
+      const id = String(updatedUser._id);
+      setFriendMap((current) => {
+        if (!current[id]) return current;
+        return { ...current, [id]: { ...current[id], ...updatedUser } };
+      });
     };
 
     socket.on("message:new", onMessage);
@@ -254,14 +283,18 @@ const RealtimeProvider = ({ children }) => {
     socket.on("presence:sync", onPresenceSync);
     socket.on("presence:status", onPresenceStatus);
     socket.on("typing:status", onTypingStatus);
+    socket.on("user:updated", onUserUpdated);
 
     return () => {
+      Object.values(typingTimersRef.current).forEach(clearTimeout);
+      typingTimersRef.current = {};
       socket.off("message:new", onMessage);
       socket.off("friend-request:received", onFriendRequest);
       socket.off("friend-requests:changed", onFriendRequestsChanged);
       socket.off("presence:sync", onPresenceSync);
       socket.off("presence:status", onPresenceStatus);
       socket.off("typing:status", onTypingStatus);
+      socket.off("user:updated", onUserUpdated);
     };
   }, [user, activeChatUserId, addNotification, loadPendingRequests, loadFriendMap]);
 
@@ -277,6 +310,7 @@ const RealtimeProvider = ({ children }) => {
     closeNotificationPanel,
     markNotificationsRead,
     handleNotificationAction,
+    dismissNotification,
     setActiveChatUserId,
     clearUnreadForFriend,
     isUserOnline,
@@ -294,6 +328,7 @@ const RealtimeProvider = ({ children }) => {
     closeNotificationPanel,
     markNotificationsRead,
     handleNotificationAction,
+    dismissNotification,
     clearUnreadForFriend,
     isUserOnline,
     isUserTyping,

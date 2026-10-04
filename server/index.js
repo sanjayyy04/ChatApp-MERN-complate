@@ -26,8 +26,8 @@ const io = new Server(server, {
         origin: getClientOrigins(),
         credentials: true,
     },
-    pingTimeout: 60000,
-    pingInterval: 25000,
+    pingTimeout: 20000,
+    pingInterval: 10000,
     transports: ["polling", "websocket"],
 });
 
@@ -91,16 +91,16 @@ io.on("connection", async (socket) => {
 
     socket.on("typing:start", ({ receiverId }) => {
         if (!receiverId) return;
-        io.to(`user:${receiverId}`).emit("typing:status", {
-            userId: String(userId),
+        io.to(`user:${String(receiverId)}`).emit("typing:status", {
+            userId,
             typing: true,
         });
     });
 
     socket.on("typing:stop", ({ receiverId }) => {
         if (!receiverId) return;
-        io.to(`user:${receiverId}`).emit("typing:status", {
-            userId: String(userId),
+        io.to(`user:${String(receiverId)}`).emit("typing:status", {
+            userId,
             typing: false,
         });
     });

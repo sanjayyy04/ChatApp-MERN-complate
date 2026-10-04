@@ -156,11 +156,64 @@ const ChatMessage = ({
   );
 };
 
+const ChatFriendContact = ({
+  friend,
+  active,
+  onSelect,
+  onLongPress,
+  isUserOnline,
+  isUserTyping,
+  getUnreadForFriend,
+}) => {
+  const longPress = useLongPress(onLongPress);
+  return (
+    <button
+      type="button"
+      className={`chat-contact ${active ? "chat-contact--active" : ""}`}
+      onClick={longPress.wrapClick(() => onSelect(friend))}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        onLongPress();
+      }}
+      onTouchStart={longPress.onTouchStart}
+      onTouchEnd={longPress.onTouchEnd}
+      onTouchMove={longPress.onTouchMove}
+      onTouchCancel={longPress.onTouchCancel}
+      onMouseDown={longPress.onMouseDown}
+      onMouseUp={longPress.onMouseUp}
+      onMouseLeave={longPress.onMouseLeave}
+    >
+      <span className="chat-contact__avatar-wrap">
+        <img src={userAvatarUrl(friend)} alt="" />
+        {isUserOnline(friend._id) && <span className="chat-contact__online" aria-hidden="true" />}
+      </span>
+      <span className="chat-contact__meta">
+        <UsernameLink person={friend} />
+        <small>
+          <PresenceStatus
+            online={isUserOnline(friend._id)}
+            typing={isUserTyping(friend._id)}
+            className="chat-contact__presence"
+          />
+          {!isUserOnline(friend._id) && !isUserTyping(friend._id) ? friend.name : null}
+        </small>
+      </span>
+      {getUnreadForFriend(friend._id) > 0 && (
+        <span className="chat-contact__badge" aria-label="Unread messages">
+          {getUnreadForFriend(friend._id)}
+        </span>
+      )}
+    </button>
+  );
+};
+
 const Chat = () => {
   const { user } = useContext(UserContext);
   const [friends, setFriends] = useState([]);
   const [requests, setRequests] = useState([]);
   const [selectedFriend, setSelectedFriend] = useState(null);
+  const [friendSheetFriend, setFriendSheetFriend] = useState(null);
+  const [friendActionLoading, setFriendActionLoading] = useState(false);
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -204,8 +257,22 @@ const Chat = () => {
     const onFriendRequestsChanged = () => {
       loadContacts().catch(() => {});
     };
+    const onUserUpdated = ({ user: updatedUser }) => {
+      if (!updatedUser?._id) return;
+      const id = String(updatedUser._id);
+      setFriends((current) => current.map((friend) => (
+        String(friend._id) === id ? { ...friend, ...updatedUser } : friend
+      )));
+      setSelectedFriend((current) => (
+        current && String(current._id) === id ? { ...current, ...updatedUser } : current
+      ));
+    };
     socket.on("friend-requests:changed", onFriendRequestsChanged);
-    return () => socket.off("friend-requests:changed", onFriendRequestsChanged);
+    socket.on("user:updated", onUserUpdated);
+    return () => {
+      socket.off("friend-requests:changed", onFriendRequestsChanged);
+      socket.off("user:updated", onUserUpdated);
+    };
   }, [user]);
 
   useEffect(() => {
@@ -230,15 +297,65 @@ const Chat = () => {
         clearTimeout(typingStopTimerRef.current);
       }
       if (selectedFriend?._id) {
-        connectSocket().emit("typing:stop", { receiverId: selectedFriend._id });
+        emitSocket("typing:stop", { receiverId: selectedFriend._id });
       }
     };
   }, [selectedFriend, setActiveChatUserId, clearUnreadForFriend]);
 
   const emitTyping = (isTyping) => {
     if (!selectedFriend) return;
-    const socket = connectSocket();
-    socket.emit(isTyping ? "typing:start" : "typing:stop", { receiverId: selectedFriend._id });
+    emitSocket(
+      isTyping ? "typing:start" : "typing:stop",
+      { receiverId: selectedFriend._id },
+    );
+  };
+
+  const patchFriendInState = (friendId) => {
+    setFriends((current) => current.filter((friend) => String(friend._id) !== String(friendId)));
+    if (selectedFriend && String(selectedFriend._id) === String(friendId)) {
+      setSelectedFriend(null);
+      setMessages([]);
+    }
+    clearUnreadForFriend(friendId);
+  };
+
+  const deleteChatWithFriend = async (friendId) => {
+    await axios.delete(`${API_URL}/api/messages/conversation/${friendId}`, {
+      withCredentials: true,
+    });
+    if (selectedFriend && String(selectedFriend._id) === String(friendId)) {
+      setMessages([]);
+    }
+  };
+
+  const unfollowFriend = async (friendId) => {
+    await axios.delete(`${API_URL}/api/friends/${friendId}`, { withCredentials: true });
+    patchFriendInState(friendId);
+  };
+
+  const runFriendSheetAction = async (action) => {
+    const friend = friendSheetFriend;
+    if (!friend || friendActionLoading) return;
+    setFriendActionLoading(true);
+    try {
+      if (action === "unfollow_chat") {
+        await deleteChatWithFriend(friend._id);
+        await unfollowFriend(friend._id);
+        toast.success("Unfollowed and chat deleted.");
+      } else if (action === "unfollow") {
+        await unfollowFriend(friend._id);
+        toast.success("Unfollowed.");
+      } else if (action === "delete_chat") {
+        await deleteChatWithFriend(friend._id);
+        toast.success("Chat deleted.");
+      }
+      setFriendSheetFriend(null);
+      await loadContacts();
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Action failed.");
+    } finally {
+      setFriendActionLoading(false);
+    }
   };
 
   const handleComposerChange = (event) => {
@@ -431,6 +548,55 @@ const Chat = () => {
         mode={lightbox?.mode || "image"}
       />
 
+      {friendSheetFriend && (
+        <div
+          className="chat-message-sheet"
+          role="presentation"
+          onClick={() => !friendActionLoading && setFriendSheetFriend(null)}
+        >
+          <div
+            className="chat-message-sheet__panel"
+            role="dialog"
+            aria-label={`Actions for ${friendSheetFriend.userName}`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <p className="chat-message-sheet__hint">@{friendSheetFriend.userName}</p>
+            <button
+              type="button"
+              className="chat-message-sheet__action chat-message-sheet__action--danger"
+              disabled={friendActionLoading}
+              onClick={() => runFriendSheetAction("unfollow_chat")}
+            >
+              Unfollow & delete chat
+            </button>
+            <button
+              type="button"
+              className="chat-message-sheet__action"
+              disabled={friendActionLoading}
+              onClick={() => runFriendSheetAction("unfollow")}
+            >
+              Unfollow only
+            </button>
+            <button
+              type="button"
+              className="chat-message-sheet__action"
+              disabled={friendActionLoading}
+              onClick={() => runFriendSheetAction("delete_chat")}
+            >
+              Delete chat only
+            </button>
+            <button
+              type="button"
+              className="chat-message-sheet__action chat-message-sheet__action--cancel"
+              disabled={friendActionLoading}
+              onClick={() => setFriendSheetFriend(null)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {attachSheetOpen && (
         <div
           className="chat-message-sheet chat-attach-sheet"
@@ -558,33 +724,16 @@ const Chat = () => {
           )}
           <h3>Friends</h3>
           {friends.length ? friends.map((friend) => (
-            <button
-              type="button"
-              className={`chat-contact ${selectedFriend?._id === friend._id ? "chat-contact--active" : ""}`}
-              onClick={() => setSelectedFriend(friend)}
+            <ChatFriendContact
               key={friend._id}
-            >
-              <span className="chat-contact__avatar-wrap">
-                <img src={userAvatarUrl(friend)} alt="" />
-                {isUserOnline(friend._id) && <span className="chat-contact__online" aria-hidden="true" />}
-              </span>
-              <span className="chat-contact__meta">
-                <UsernameLink person={friend} />
-                <small>
-                  <PresenceStatus
-                    online={isUserOnline(friend._id)}
-                    typing={isUserTyping(friend._id)}
-                    className="chat-contact__presence"
-                  />
-                  {!isUserOnline(friend._id) && !isUserTyping(friend._id) ? friend.name : null}
-                </small>
-              </span>
-              {getUnreadForFriend(friend._id) > 0 && (
-                <span className="chat-contact__badge" aria-label="Unread messages">
-                  {getUnreadForFriend(friend._id)}
-                </span>
-              )}
-            </button>
+              friend={friend}
+              active={selectedFriend?._id === friend._id}
+              onSelect={setSelectedFriend}
+              onLongPress={() => setFriendSheetFriend(friend)}
+              isUserOnline={isUserOnline}
+              isUserTyping={isUserTyping}
+              getUnreadForFriend={getUnreadForFriend}
+            />
           )) : <p>No accepted friends yet.</p>}
         </aside>
 

@@ -74,7 +74,7 @@ const respondToRequest = async (req, res) => {
 };
 
 const getFriends = async (req, res) => {
-    const requests = await FriendRequest.find({ status: "accepted", $or: [{ from: req.user._id }, { to: req.user._id }] }).populate("from to", "userName name email");
+    const requests = await FriendRequest.find({ status: "accepted", $or: [{ from: req.user._id }, { to: req.user._id }] }).populate("from to", "userName name email avatar bio updatedAt");
     const friends = requests.map((request) => String(request.from._id) === String(req.user._id) ? request.to : request.from);
     return res.json({ data: friends });
 };
@@ -110,6 +110,29 @@ const getFollowing = async (req, res) => {
     return res.json({ data: requests.map((request) => request.to) });
 };
 
+const removeFriend = async (req, res) => {
+    const otherUserId = req.params.userId;
+    if (!mongoose.isValidObjectId(otherUserId) || otherUserId === String(req.user._id)) {
+        return res.status(400).json({ message: "Invalid user." });
+    }
+
+    const request = await FriendRequest.findOneAndDelete({
+        status: "accepted",
+        $or: [
+            { from: req.user._id, to: otherUserId },
+            { from: otherUserId, to: req.user._id },
+        ],
+    });
+
+    if (!request) {
+        return res.status(404).json({ message: "Friendship not found." });
+    }
+
+    broadcastSocialUpdated([req.user._id, otherUserId]);
+    broadcastFriendRequestsChanged([req.user._id, otherUserId]);
+    return res.json({ message: "Unfollowed successfully." });
+};
+
 module.exports = {
     sendFriendRequest,
     cancelFriendRequest,
@@ -121,4 +144,5 @@ module.exports = {
     getUserFollowStats,
     getFollowers,
     getFollowing,
+    removeFriend,
 };

@@ -34,6 +34,12 @@ const UserProvider = ({ children }) => {
     loadUserFromCookie();
   }, []);
 
+  useEffect(() => {
+    const onPageHide = () => disconnectSocket();
+    window.addEventListener("pagehide", onPageHide);
+    return () => window.removeEventListener("pagehide", onPageHide);
+  }, []);
+
   // Connect Socket.IO when authenticated user exists
   useEffect(() => {
     // Still checking authentication

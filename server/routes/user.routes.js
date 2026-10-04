@@ -24,8 +24,14 @@ const {
     getUserFollowStats,
     getFollowers,
     getFollowing,
+    removeFriend,
 } = require("../controller/friendRequest.controller.js");
-const { getConversation, sendChatAttachment, deleteMessage } = require("../controller/message.controller.js");
+const {
+    getConversation,
+    sendChatAttachment,
+    deleteMessage,
+    deleteConversation,
+} = require("../controller/message.controller.js");
 
 const authMiddleware = require("../middleware/auth.middleware.js");
 const { uploadProfileImages, uploadChatAttachment } = require("../middleware/upload.middleware.js");
@@ -52,10 +58,12 @@ router.get("/friend-requests/received", authMiddleware, getReceivedRequests);
 router.get("/friend-requests/sent", authMiddleware, getSentRequests);
 router.patch("/friend-requests/:id/:action", authMiddleware, respondToRequest);
 router.get("/friends", authMiddleware, getFriends);
+router.delete("/friends/:userId", authMiddleware, removeFriend);
 router.get("/social/stats", authMiddleware, getFollowStats);
 router.get("/social/stats/:userId", authMiddleware, getUserFollowStats);
 router.get("/social/followers", authMiddleware, getFollowers);
 router.get("/social/following", authMiddleware, getFollowing);
+router.delete("/messages/conversation/:userId", authMiddleware, deleteConversation);
 router.get("/messages/:userId", authMiddleware, getConversation);
 router.post("/messages/:userId/attachment", authMiddleware, (req, res, next) => {
     uploadChatAttachment(req, res, (error) => {

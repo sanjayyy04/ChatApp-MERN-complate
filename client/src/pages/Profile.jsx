@@ -47,6 +47,11 @@ const Profile = () => {
   }, [user]);
 
   useEffect(() => {
+    if (!user || editing) return;
+    setAvatarPreview(userAvatarUrl(user));
+  }, [user, editing, user?.avatar, user?.updatedAt]);
+
+  useEffect(() => {
     if (!user) return;
     setForm({
       name: user.name || "",
@@ -55,8 +60,9 @@ const Profile = () => {
       phone: user.phone || "",
       bio: user.bio || "",
     });
-    setAvatarPreview(userAvatarUrl(user));
-    setAvatarFile(null);
+    if (!editing) {
+      setAvatarFile(null);
+    }
   }, [user, editing]);
 
   const openPeopleList = async (type) => {
@@ -98,7 +104,10 @@ const Profile = () => {
         withCredentials: true,
         headers: { "Content-Type": "multipart/form-data" },
       });
-      setUser(response.data.data);
+      const updated = response.data.data;
+      setUser(updated);
+      setAvatarPreview(userAvatarUrl(updated));
+      setAvatarFile(null);
       setEditing(false);
       toast.success(response.data.message);
     } catch (error) {

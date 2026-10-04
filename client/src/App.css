@@ -2344,5 +2344,29 @@
 }
 
 .chat-contact__presence {
-    font-size: 0.78rem;
+  font-size: 0.78rem;
+}
+
+.notification-bell__swipe-wrap {
+  position: relative;
+  overflow: hidden;
+}
+
+.notification-bell__swipe-delete {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 1rem;
+  color: #fff;
+  background: #e53935;
+}
+
+.notification-bell__swipe-wrap .notification-bell__item {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  transition: transform 0.15s ease-out;
+  background: var(--glass-bg-strong);
 }

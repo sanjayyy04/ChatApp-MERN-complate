@@ -1,6 +1,61 @@
-import { useEffect, useRef } from "react";
-import { FiBell } from "react-icons/fi";
+import { useEffect, useRef, useState } from "react";
+import { FiBell, FiTrash2 } from "react-icons/fi";
 import { useRealtime } from "../context/RealtimeContext";
+
+const SWIPE_DELETE_THRESHOLD = 72;
+
+const SwipeNotificationRow = ({ item, onDismiss, onOpen }) => {
+  const startXRef = useRef(0);
+  const draggingRef = useRef(false);
+  const [offset, setOffset] = useState(0);
+
+  const onTouchStart = (event) => {
+    startXRef.current = event.touches[0].clientX;
+    draggingRef.current = true;
+  };
+
+  const onTouchMove = (event) => {
+    if (!draggingRef.current) return;
+    const delta = event.touches[0].clientX - startXRef.current;
+    setOffset(Math.min(0, delta));
+  };
+
+  const onTouchEnd = () => {
+    draggingRef.current = false;
+    if (offset <= -SWIPE_DELETE_THRESHOLD) {
+      onDismiss(item.id);
+    }
+    setOffset(0);
+  };
+
+  return (
+    <div className="notification-bell__swipe-wrap">
+      <div className="notification-bell__swipe-delete" aria-hidden="true">
+        <FiTrash2 />
+      </div>
+      <button
+        type="button"
+        className={`notification-bell__item${item.read ? "" : " notification-bell__item--unread"}`}
+        style={{ transform: `translateX(${offset}px)` }}
+        onClick={() => onOpen(item)}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchEnd}
+      >
+        <span className="notification-bell__item-type">
+          {item.type === "friend_request" ? "Friend request" : "Message"}
+        </span>
+        <strong>
+          {item.type === "friend_request"
+            ? item.fromName || `@${item.fromUserName}`
+            : `@${item.fromUserName}`}
+        </strong>
+        <span>{item.preview}</span>
+      </button>
+    </div>
+  );
+};
 
 const NotificationBell = () => {
   const panelRef = useRef(null);
@@ -13,6 +68,7 @@ const NotificationBell = () => {
     closeNotificationPanel,
     markNotificationsRead,
     handleNotificationAction,
+    dismissNotification,
   } = useRealtime();
 
   useEffect(() => {
@@ -63,22 +119,12 @@ const NotificationBell = () => {
           </header>
           <div className="notification-bell__list">
             {notifications.length ? notifications.map((item) => (
-              <button
+              <SwipeNotificationRow
                 key={item.id}
-                type="button"
-                className={`notification-bell__item${item.read ? "" : " notification-bell__item--unread"}`}
-                onClick={() => handleNotificationAction(item)}
-              >
-                <span className="notification-bell__item-type">
-                  {item.type === "friend_request" ? "Friend request" : "Message"}
-                </span>
-                <strong>
-                  {item.type === "friend_request"
-                    ? item.fromName || `@${item.fromUserName}`
-                    : `@${item.fromUserName}`}
-                </strong>
-                <span>{item.preview}</span>
-              </button>
+                item={item}
+                onDismiss={dismissNotification}
+                onOpen={handleNotificationAction}
+              />
             )) : (
               <p className="notification-bell__empty">No notifications yet.</p>
             )}

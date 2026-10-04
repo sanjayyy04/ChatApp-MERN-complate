@@ -116,4 +116,30 @@ const deleteMessage = async (req, res) => {
     }
 };
 
-module.exports = { getConversation, sendChatAttachment, deleteMessage };
+const deleteConversation = async (req, res) => {
+    try {
+        const otherUserId = req.params.userId;
+        if (!mongoose.isValidObjectId(otherUserId)) {
+            return res.status(400).json({ message: "Invalid user." });
+        }
+
+        const filter = {
+            $or: [
+                { sender: req.user._id, receiver: otherUserId },
+                { sender: otherUserId, receiver: req.user._id },
+            ],
+        };
+
+        const messages = await Message.find(filter).select("attachmentUrl");
+        messages.forEach((message) => removeChatAttachmentFile(message.attachmentUrl));
+        await Message.deleteMany(filter);
+
+        return res.json({ message: "Chat deleted." });
+    } catch (error) {
+        return res.status(500).json({
+            message: error.message || "Could not delete chat.",
+        });
+    }
+};
+
+module.exports = { getConversation, sendChatAttachment, deleteMessage, deleteConversation };

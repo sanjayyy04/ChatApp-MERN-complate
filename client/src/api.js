@@ -23,6 +23,15 @@ export const fileUrl = (relativePath) => {
   return `${API_URL}${relativePath.startsWith("/") ? "" : "/"}${relativePath}`;
 };
 
-export const userAvatarUrl = (person) =>
-  fileUrl(person?.avatar) ||
-  `https://i.pravatar.cc/320?u=${encodeURIComponent(person?._id || person?.id || person?.userName || "guest")}`;
+export const userAvatarUrl = (person) => {
+  if (!person?.avatar) {
+    return `https://i.pravatar.cc/320?u=${encodeURIComponent(person?._id || person?.id || person?.userName || "guest")}`;
+  }
+  const base = fileUrl(person.avatar);
+  const version = person.updatedAt
+    ? new Date(person.updatedAt).getTime()
+    : person.avatarVersion || "";
+  if (!version) return base;
+  const joiner = base.includes("?") ? "&" : "?";
+  return `${base}${joiner}v=${version}`;
+};

@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const user = require("../models/userModel.js");
 const { removeUploadedFile } = require("../middleware/upload.middleware.js");
 const { getAuthCookieOptions } = require("../utils/authCookie.js");
+const { broadcastProfileUpdated } = require("../utils/socialEvents.js");
 
 const helloWorld = (req, res) => {
     res.send("Hello World! api is running....");
@@ -228,6 +229,8 @@ const updateProfileController = async (req, res) => {
         await currentUser.save();
         const data = currentUser.toObject();
         delete data.password;
+
+        broadcastProfileUpdated(currentUser).catch(() => {});
 
         return res.status(200).json({
             message: "Profile updated successfully",
