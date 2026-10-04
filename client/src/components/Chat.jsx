@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useEffect, useRef, useState } from "react";
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { FiArrowLeft, FiCheck, FiFileText, FiImage, FiPaperclip, FiSend, FiTrash2, FiVideo, FiX } from "react-icons/fi";
 import { toast } from "react-toastify";
@@ -11,6 +11,7 @@ import UsernameLink from "./UsernameLink";
 import { useProfileSheet } from "../context/ProfileSheetContext";
 import { useRealtime } from "../context/RealtimeContext";
 import PresenceStatus from "./PresenceStatus";
+import { buildMessageTimeline, formatMessageTime } from "../utils/chatDates";
 
 const MessageBody = ({ message, onOpenImageClick, onOpenVideoClick, onOpenFileClick }) => {
   const type = message.messageType || "text";
@@ -146,15 +147,29 @@ const ChatMessage = ({
           {isSelected ? <FiCheck /> : null}
         </span>
       )}
-      <MessageBody
-        message={message}
-        onOpenImageClick={selectionActive ? undefined : openImage}
-        onOpenVideoClick={selectionActive ? undefined : openVideo}
-        onOpenFileClick={selectionActive ? undefined : openFile}
-      />
+      <div className="chat-message__content">
+        <MessageBody
+          message={message}
+          onOpenImageClick={selectionActive ? undefined : openImage}
+          onOpenVideoClick={selectionActive ? undefined : openVideo}
+          onOpenFileClick={selectionActive ? undefined : openFile}
+        />
+        <time
+          className="chat-message__time"
+          dateTime={message.createdAt || undefined}
+        >
+          {formatMessageTime(message.createdAt || message.updatedAt)}
+        </time>
+      </div>
     </div>
   );
 };
+
+const ChatDateDivider = ({ label }) => (
+  <div className="chat-date-divider" role="separator" aria-label={label}>
+    <span>{label}</span>
+  </div>
+);
 
 const ChatFriendContact = ({
   friend,
@@ -236,6 +251,8 @@ const Chat = () => {
     pendingRequestCount,
   } = useRealtime();
   const typingStopTimerRef = useRef(null);
+  const messagesEndRef = useRef(null);
+  const scrollThreadToBottomRef = useRef(true);
 
   const loadContacts = async () => {
     const [friendsResponse, requestsResponse] = await Promise.all([
@@ -283,7 +300,18 @@ const Chat = () => {
   useEffect(() => {
     setSelectedMessageIds([]);
     setDeleteSheetOpen(false);
+    scrollThreadToBottomRef.current = true;
   }, [selectedFriend?._id]);
+
+  useEffect(() => {
+    if (!selectedFriend) return undefined;
+    const behavior = scrollThreadToBottomRef.current ? "auto" : "smooth";
+    scrollThreadToBottomRef.current = false;
+    const frame = requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ block: "end", behavior });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [messages, selectedFriend]);
 
   useEffect(() => {
     if (selectedFriend?._id) {
@@ -531,6 +559,8 @@ const Chat = () => {
     if (selectionActive) clearSelection();
     else closeThread();
   };
+
+  const messageTimeline = useMemo(() => buildMessageTimeline(messages), [messages]);
 
   if (!user) return <div className="container mt-5">Please log in to view chats.</div>;
 
@@ -801,20 +831,27 @@ const Chat = () => {
                 )}
               </header>
               <div className="chat-messages">
-                {messages.map((message) => (
-                  <ChatMessage
-                    key={message._id}
-                    message={message}
-                    isSent={String(message.sender) === String(user._id)}
-                    isSelected={selectedMessageIds.includes(String(message._id))}
-                    selectionActive={selectionActive}
-                    onLongPress={() => startMessageSelection(message)}
-                    onToggleSelect={() => toggleMessageSelection(message)}
-                    onOpenImage={(src, alt) => setLightbox({ src, alt, mode: "image" })}
-                    onOpenVideo={(src, alt) => setLightbox({ src, alt, mode: "video" })}
-                    onOpenFile={(href, name) => setLightbox({ href, name, mode: "file" })}
-                  />
-                ))}
+                {messageTimeline.map((item) => {
+                  if (item.kind === "date") {
+                    return <ChatDateDivider key={item.id} label={item.label} />;
+                  }
+                  const message = item.message;
+                  return (
+                    <ChatMessage
+                      key={item.id}
+                      message={message}
+                      isSent={String(message.sender) === String(user._id)}
+                      isSelected={selectedMessageIds.includes(String(message._id))}
+                      selectionActive={selectionActive}
+                      onLongPress={() => startMessageSelection(message)}
+                      onToggleSelect={() => toggleMessageSelection(message)}
+                      onOpenImage={(src, alt) => setLightbox({ src, alt, mode: "image" })}
+                      onOpenVideo={(src, alt) => setLightbox({ src, alt, mode: "video" })}
+                      onOpenFile={(href, name) => setLightbox({ href, name, mode: "file" })}
+                    />
+                  );
+                })}
+                <div ref={messagesEndRef} className="chat-messages__anchor" aria-hidden="true" />
               </div>
               <form className={`chat-composer${selectionActive ? " chat-composer--hidden" : ""}`} onSubmit={sendMessage}>
                 <input
