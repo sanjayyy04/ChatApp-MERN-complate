@@ -2,6 +2,7 @@ import React from "react";
 import { BrowserRouter } from "react-router-dom";
 import Nav from "./components/Nav";
 import UserProvider from "./context/UserContext";
+import ProfileSheetProvider from "./context/ProfileSheetContext";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "./App.css";
@@ -12,10 +13,10 @@ const App = () => {
   return (
     <BrowserRouter basename={basename}>
       <UserProvider>
-        <div className="container">
+        <ProfileSheetProvider>
           <Nav />
-        </div>
-        <ToastContainer position="bottom-right" autoClose={2000} />
+          <ToastContainer position="bottom-right" autoClose={2000} />
+        </ProfileSheetProvider>
       </UserProvider>
     </BrowserRouter>
   );

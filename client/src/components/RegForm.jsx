@@ -7,12 +7,15 @@ import axios from "axios";
 import { toast } from "react-toastify";
 import { UserContext } from "../context/UserContext";
 import { API_URL } from "../api";
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
 const RegForm = () => {
   const { setUser } = useContext(UserContext);
   const [isRegistering, setIsRegistering] = useState(true);
   const [formData, setFormData] = useState({});
   const [showPassword, setShowPassword] = useState(false);
+  const navigate = useNavigate();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -30,6 +33,7 @@ const RegForm = () => {
       console.error("Error sending data:", error);
     }
   };
+
   const handleLogin = async () => {
     try {
       const response = await axios.post(`${API_URL}/api/login`, formData, {
@@ -40,13 +44,41 @@ const RegForm = () => {
         withCredentials: true,
       });
 
-      toast.success(response.data.message);
       setUser(profileResponse.data.data);
+      navigate("/profile");
+      toast.success(response.data.message);
     } catch (error) {
       toast.error(error.response?.data?.message || "Login failed");
       console.error("Error sending data:", error);
     }
   };
+
+  // const handleLogin = async () => {
+  //   try {
+  //     const response = await axios.post(`${API_URL}/api/login`, formData, {
+  //       withCredentials: true,
+  //     });
+
+  //     const profileResponse = await axios.get(`${API_URL}/api/profile`, {
+  //       withCredentials: true,
+  //     });
+
+  //     setUser(profileResponse.data.data);
+
+  //     // Connect Socket.IO AFTER successful login
+  //     const socket = connectSocket();
+
+  //     socket.on("connect", () => {
+  //       console.log("Socket connected:", socket.id);
+  //     });
+
+  //     toast.success(response.data.message);
+
+  //     navigate("/profile");
+  //   } catch (error) {
+  //     toast.error(error.response?.data?.message || "Login failed");
+  //   }
+  // };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
