@@ -6,6 +6,8 @@ import { toast } from "react-toastify";
 import { API_URL, userAvatarUrl } from "../api";
 import { connectSocket } from "../services/socket";
 import MediaLightbox from "./MediaLightbox";
+import { useRealtime } from "../context/RealtimeContext";
+import PresenceStatus from "./PresenceStatus";
 
 const UserProfileSheet = ({
   open,
@@ -17,6 +19,7 @@ const UserProfileSheet = ({
   onFriendRequestCanceled,
 }) => {
   const navigate = useNavigate();
+  const { isUserOnline } = useRealtime();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [requesting, setRequesting] = useState(false);
@@ -222,6 +225,11 @@ const UserProfileSheet = ({
               </div>
 
               <h1 className="profile-ig-name">{person.name}</h1>
+              <PresenceStatus
+                online={isUserOnline(person._id)}
+                typing={false}
+                className="user-profile-sheet__presence"
+              />
               <p className="profile-bio profile-bio--ig">
                 {person.bio || "No bio yet."}
               </p>

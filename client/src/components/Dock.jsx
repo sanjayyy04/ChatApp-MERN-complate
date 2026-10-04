@@ -21,6 +21,7 @@ import {
   FiSearch,
   FiUser,
 } from "react-icons/fi";
+import { useRealtime } from "../context/RealtimeContext";
 
 function DockItem({
   children,
@@ -116,9 +117,12 @@ function DockLabel({ children, className = "", isHovered }) {
   );
 }
 
-function DockIcon({ children, className = "" }) {
+function DockIcon({ children, className = "", badge = 0 }) {
   return (
-    <div className={`dock-icon${className ? ` ${className}` : ""}`}>{children}</div>
+    <div className={`dock-icon${className ? ` ${className}` : ""}`}>
+      {children}
+      {badge > 0 && <span className="dock-icon__badge" aria-hidden="true" />}
+    </div>
   );
 }
 
@@ -163,7 +167,7 @@ function Dock({
       label={item.label}
       active={item.active}
     >
-      <DockIcon>{item.icon}</DockIcon>
+      <DockIcon badge={item.badge}>{item.icon}</DockIcon>
       <DockLabel>{item.label}</DockLabel>
     </DockItem>
   );
@@ -194,6 +198,8 @@ const HIDE_DELAY = 2200;
 const AppDock = ({ user, authLoading }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { unreadMessageTotal, pendingRequestCount } = useRealtime();
+  const chatBadge = unreadMessageTotal + pendingRequestCount;
   const [visible, setVisible] = useState(true);
   const [compact, setCompact] = useState(
     typeof window !== "undefined" ? window.innerWidth < 640 : false,
@@ -247,6 +253,7 @@ const AppDock = ({ user, authLoading }) => {
       label: "Chats",
       onClick: () => navigate("/chat"),
       active: location.pathname === "/chat",
+      badge: user ? chatBadge : 0,
     },
     {
       icon: authLoading ? <FiUser size={compact ? 18 : 20} /> : user ? <FiUser size={compact ? 18 : 20} /> : <FiLogIn size={compact ? 18 : 20} />,

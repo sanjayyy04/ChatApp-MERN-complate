@@ -7,12 +7,18 @@ import Profile from "../pages/Profile";
 import { UserContext } from "../context/UserContext";
 import ChatPage from "../pages/ChatPage";
 import AppDock from "./Dock";
+import NotificationBell from "./NotificationBell";
 
 const Nav = () => {
   const { user, authLoading } = useContext(UserContext);
 
   return (
     <>
+      {user && !authLoading && (
+        <div className="app-topbar">
+          <NotificationBell />
+        </div>
+      )}
       <div className="container app-shell">
         <Routes>
           <Route path="/" element={<Home />} />

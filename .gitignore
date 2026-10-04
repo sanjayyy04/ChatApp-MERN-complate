@@ -4,3 +4,7 @@ dist/
 .env
 .env.*
 !.env.example
+server/uploads/avatars/*
+server/uploads/covers/*
+server/uploads/chat/*
+!server/uploads/**/.gitkeep

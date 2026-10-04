@@ -1,4 +1,7 @@
-export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+const configuredApiUrl = import.meta.env.VITE_API_URL;
+export const API_URL = configuredApiUrl === ""
+  ? ""
+  : (configuredApiUrl || "http://localhost:3000");
 
 export const fileUrl = (relativePath) => {
   if (!relativePath) return "";

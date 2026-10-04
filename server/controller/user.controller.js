@@ -1,7 +1,7 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const cookieParser = require('cookie-parser');
 const user = require("../models/userModel.js");
+const { removeUploadedFile } = require("../middleware/upload.middleware.js");
 
 const helloWorld = (req, res) => {
     res.send("Hello World! api is running....");
@@ -40,7 +40,7 @@ const createUser = async (req, res) => {
 
 const getAllUsers = async (req, res) => {
 
-    const users = await user.find().select("-password");
+    const users = await user.find({ _id: { $ne: req.user._id } }).select("-password");
 
     res.status(200).json({
         message: "Users retrieved successfully",
@@ -187,4 +187,65 @@ const getProfileController = (req, res) => {
     });
 };
 
-module.exports = { helloWorld, createUser, getAllUsers, searchUsers, getUserById, deleteUserById, loginController, logoutController, getProfileController };
+const updateProfileController = async (req, res) => {
+    try {
+        const { name, userName, email, phone, bio } = req.body;
+        const currentUser = await user.findById(req.user._id);
+
+        if (!currentUser) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        if (userName && userName.trim() !== currentUser.userName) {
+            const takenName = await user.findOne({
+                userName: userName.trim(),
+                _id: { $ne: currentUser._id },
+            });
+            if (takenName) {
+                return res.status(400).json({ message: "Username already taken" });
+            }
+            currentUser.userName = userName.trim();
+        }
+
+        if (email && email.trim() !== currentUser.email) {
+            const takenEmail = await user.findOne({
+                email: email.trim(),
+                _id: { $ne: currentUser._id },
+            });
+            if (takenEmail) {
+                return res.status(400).json({ message: "Email already in use" });
+            }
+            currentUser.email = email.trim();
+        }
+
+        if (name) currentUser.name = name.trim();
+        if (phone !== undefined && phone !== "") currentUser.phone = phone;
+        if (bio !== undefined) currentUser.bio = String(bio).slice(0, 280);
+
+        if (req.files?.avatar?.[0]) {
+            removeUploadedFile(currentUser.avatar);
+            currentUser.avatar = `/uploads/avatars/${req.files.avatar[0].filename}`;
+        }
+
+        if (req.files?.coverImage?.[0]) {
+            removeUploadedFile(currentUser.coverImage);
+            currentUser.coverImage = `/uploads/covers/${req.files.coverImage[0].filename}`;
+        }
+
+        await currentUser.save();
+        const data = currentUser.toObject();
+        delete data.password;
+
+        return res.status(200).json({
+            message: "Profile updated successfully",
+            data,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            message: "Could not update profile",
+            error: error.message,
+        });
+    }
+};
+
+module.exports = { helloWorld, createUser, getAllUsers, searchUsers, getUserById, deleteUserById, loginController, logoutController, getProfileController, updateProfileController };

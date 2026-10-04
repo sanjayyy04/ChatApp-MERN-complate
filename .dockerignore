@@ -1,0 +1,17 @@
+.git
+.gitignore
+**/.env
+**/.env.*
+**/node_modules
+client
+docker-compose.yml
+.env.example
+*.md
+client/**
+server/node_modules
+server/uploads/avatars/*
+server/uploads/covers/*
+server/uploads/chat/*
+!server/uploads/avatars/.gitkeep
+!server/uploads/covers/.gitkeep
+!server/uploads/chat/.gitkeep

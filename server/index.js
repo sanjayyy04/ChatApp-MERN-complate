@@ -1,46 +1,123 @@
-require('dotenv').config();
-const express = require('express');
-const router = require('./routes/user.routes.js');
-const { urlencoded } = require('express');
-const mongoose = require('mongoose');
-const cors = require("cors");
-const cookieParser = require('cookie-parser');
+require("dotenv").config();
 
+const http = require("http");
+const { Server } = require("socket.io");
+const jwt = require("jsonwebtoken");
+const cookie = require("cookie");
+const { setMessageIo, broadcastMessage, createTextMessage } = require("./utils/messageEvents");
+const { setSocialIo, broadcastSocialUpdated, broadcastFriendRequestsChanged } = require("./utils/socialEvents");
+const {
+    setRealtimeIo,
+    handleSocketConnection,
+    handleSocketDisconnect,
+} = require("./utils/realtime");
 
-const connectToDatabase = async () => {
+const app = require("./app");
+const connectToDatabase = require("./config/db");
+const { getClientOrigins } = require("./config/cors");
+const FriendRequest = require("./models/friendRequestModel");
+
+const PORT = process.env.PORT || 3000;
+
+const server = http.createServer(app);
+
+const io = new Server(server, {
+    cors: {
+        origin: getClientOrigins(),
+        credentials: true,
+    },
+});
+
+io.use((socket, next) => {
     try {
-        await mongoose.connect(process.env.MONGODB_URI, {
-            serverSelectionTimeoutMS: 10000
+        const token = cookie.parse(socket.handshake.headers.cookie || "").token;
+        if (!token) return next(new Error("Unauthorized"));
+        socket.user = jwt.verify(token, process.env.JWT_SECRET);
+        next();
+    } catch {
+        next(new Error("Unauthorized"));
+    }
+});
+
+setMessageIo(io);
+setSocialIo(io);
+setRealtimeIo(io);
+
+io.on("connection", async (socket) => {
+    const userId = socket.user.id;
+    socket.join(`user:${userId}`);
+    console.log("User connected:", userId);
+
+    try {
+        const { onlineUserIds } = await handleSocketConnection(userId);
+        socket.emit("presence:sync", { onlineUserIds });
+    } catch (error) {
+        console.error("Presence sync failed:", error.message);
+    }
+
+    socket.on("message:send", async ({ receiverId, text }, acknowledge) => {
+        try {
+            const message = await createTextMessage(socket.user.id, receiverId, text);
+            broadcastMessage(message);
+            acknowledge?.({ ok: true, data: message });
+        } catch (error) {
+            acknowledge?.({ ok: false, message: error.message || "Message could not be sent." });
+        }
+    });
+
+    socket.on("friend-request:respond", async ({ requestId, action }, acknowledge) => {
+        try {
+            if (!["accept", "reject"].includes(action)) throw new Error("Invalid request action.");
+            const request = await FriendRequest.findOneAndUpdate(
+                { _id: requestId, to: socket.user.id, status: "pending" },
+                { status: action === "accept" ? "accepted" : "rejected" },
+                { new: true },
+            );
+            if (!request) throw new Error("Pending friend request not found.");
+            if (action === "accept") {
+                broadcastSocialUpdated([request.from, request.to]);
+            }
+            broadcastFriendRequestsChanged([request.from, request.to]);
+            acknowledge?.({ ok: true });
+        } catch (error) {
+            acknowledge?.({ ok: false, message: error.message || "Could not update request." });
+        }
+    });
+
+    socket.on("typing:start", ({ receiverId }) => {
+        if (!receiverId) return;
+        io.to(`user:${receiverId}`).emit("typing:status", {
+            userId: String(userId),
+            typing: true,
         });
-        console.log('Connected to MongoDB');
+    });
 
-        const app = express()
-        const port = process.env.PORT || 3000
+    socket.on("typing:stop", ({ receiverId }) => {
+        if (!receiverId) return;
+        io.to(`user:${receiverId}`).emit("typing:status", {
+            userId: String(userId),
+            typing: false,
+        });
+    });
 
-        app.use(express.json());
-        app.use(urlencoded({ extended: true }));
-        app.use(cookieParser());
-        app.use(cors({
-            origin: [
-                "http://localhost:5173",
-                "http://127.0.0.1:5173",
-                "http://localhost:8080",
-                "http://127.0.0.1:8080"
-            ],
-            credentials: true
-        }));
+    socket.on("disconnect", async () => {
+        console.log("User disconnected:", socket.id);
+        try {
+            await handleSocketDisconnect(userId);
+        } catch (error) {
+            console.error("Presence disconnect failed:", error.message);
+        }
+    });
+});
 
-        app.use('/api', router);
 
-        app.listen(port, () => {
-            console.log(`Example app listening on port ${port}`)
-        })
 
-    }
-    catch (error) {
-        console.error('Error connecting to MongoDB:', error.message);
-        process.exit(1);
-    }
+const startServer = async () => {
+    await connectToDatabase();
+
+    server.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+    });
 };
 
-connectToDatabase();
+startServer();

@@ -1,4 +1,7 @@
-FROM node:22-bookworm-slim AS base
+# Render and other hosts build from the repository root.
+# API source lives in ./server
+
+FROM node:22-bookworm-slim
 
 ENV NODE_ENV=production
 
@@ -8,17 +11,18 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends dumb-init \
     && rm -rf /var/lib/apt/lists/*
 
-COPY package.json package-lock.json ./
+COPY server/package.json server/package-lock.json ./
 
 RUN npm ci --omit=dev && npm cache clean --force
 
-COPY . .
+COPY server/ .
 
 RUN mkdir -p uploads/avatars uploads/covers uploads/chat \
     && chown -R node:node /app
 
 USER node
 
+# Render injects PORT at runtime; index.js reads process.env.PORT
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \

@@ -9,6 +9,8 @@ import { useLocation } from "react-router-dom";
 import MediaLightbox from "./MediaLightbox";
 import UsernameLink from "./UsernameLink";
 import { useProfileSheet } from "../context/ProfileSheetContext";
+import { useRealtime } from "../context/RealtimeContext";
+import PresenceStatus from "./PresenceStatus";
 
 const MessageBody = ({ message, onOpenImageClick, onOpenVideoClick, onOpenFileClick }) => {
   const type = message.messageType || "text";
@@ -172,6 +174,15 @@ const Chat = () => {
   const [attachSheetOpen, setAttachSheetOpen] = useState(false);
   const location = useLocation();
   const { openProfile } = useProfileSheet();
+  const {
+    setActiveChatUserId,
+    clearUnreadForFriend,
+    getUnreadForFriend,
+    isUserOnline,
+    isUserTyping,
+    pendingRequestCount,
+  } = useRealtime();
+  const typingStopTimerRef = useRef(null);
 
   const loadContacts = async () => {
     const [friendsResponse, requestsResponse] = await Promise.all([
@@ -206,6 +217,36 @@ const Chat = () => {
     setSelectedMessageIds([]);
     setDeleteSheetOpen(false);
   }, [selectedFriend?._id]);
+
+  useEffect(() => {
+    if (selectedFriend?._id) {
+      setActiveChatUserId(selectedFriend._id);
+      clearUnreadForFriend(selectedFriend._id);
+    } else {
+      setActiveChatUserId(null);
+    }
+    return () => {
+      if (typingStopTimerRef.current) {
+        clearTimeout(typingStopTimerRef.current);
+      }
+      if (selectedFriend?._id) {
+        connectSocket().emit("typing:stop", { receiverId: selectedFriend._id });
+      }
+    };
+  }, [selectedFriend, setActiveChatUserId, clearUnreadForFriend]);
+
+  const emitTyping = (isTyping) => {
+    if (!selectedFriend) return;
+    const socket = connectSocket();
+    socket.emit(isTyping ? "typing:start" : "typing:stop", { receiverId: selectedFriend._id });
+  };
+
+  const handleComposerChange = (event) => {
+    setText(event.target.value);
+    emitTyping(true);
+    if (typingStopTimerRef.current) clearTimeout(typingStopTimerRef.current);
+    typingStopTimerRef.current = setTimeout(() => emitTyping(false), 2000);
+  };
 
   useEffect(() => {
     document.body.classList.toggle("chat-thread-open", Boolean(selectedFriend));
@@ -263,6 +304,7 @@ const Chat = () => {
       if (!result?.ok) toast.error(result?.message || "Could not send message.");
     });
     setText("");
+    emitTyping(false);
   };
 
   const uploadAttachment = async (file) => {
@@ -499,7 +541,12 @@ const Chat = () => {
           <h2>Chats</h2>
           {requests.length > 0 && (
             <>
-              <h3>Requests</h3>
+              <h3 className="chat-sidebar__requests-title">
+                Requests
+                {pendingRequestCount > 0 && (
+                  <span className="chat-sidebar__requests-badge">{pendingRequestCount}</span>
+                )}
+              </h3>
               {requests.map((request) => (
                 <div className="chat-request" key={request._id}>
                   <UsernameLink person={request.from} />
@@ -517,11 +564,26 @@ const Chat = () => {
               onClick={() => setSelectedFriend(friend)}
               key={friend._id}
             >
-              <img src={userAvatarUrl(friend)} alt="" />
-              <span>
-                <UsernameLink person={friend} />
-                <small>{friend.name}</small>
+              <span className="chat-contact__avatar-wrap">
+                <img src={userAvatarUrl(friend)} alt="" />
+                {isUserOnline(friend._id) && <span className="chat-contact__online" aria-hidden="true" />}
               </span>
+              <span className="chat-contact__meta">
+                <UsernameLink person={friend} />
+                <small>
+                  <PresenceStatus
+                    online={isUserOnline(friend._id)}
+                    typing={isUserTyping(friend._id)}
+                    className="chat-contact__presence"
+                  />
+                  {!isUserOnline(friend._id) && !isUserTyping(friend._id) ? friend.name : null}
+                </small>
+              </span>
+              {getUnreadForFriend(friend._id) > 0 && (
+                <span className="chat-contact__badge" aria-label="Unread messages">
+                  {getUnreadForFriend(friend._id)}
+                </span>
+              )}
             </button>
           )) : <p>No accepted friends yet.</p>}
         </aside>
@@ -563,7 +625,17 @@ const Chat = () => {
                       <strong>
                         <UsernameLink person={selectedFriend} className="username-link--header" />
                       </strong>
-                      <span>{selectedFriend.name}</span>
+                      <PresenceStatus
+                        online={isUserOnline(selectedFriend._id)}
+                        typing={isUserTyping(selectedFriend._id)}
+                        className="chat-thread-header__presence"
+                      />
+                      {!isUserTyping(selectedFriend._id) && !isUserOnline(selectedFriend._id) && (
+                        <span>{selectedFriend.name}</span>
+                      )}
+                      {!isUserTyping(selectedFriend._id) && isUserOnline(selectedFriend._id) && (
+                        <span className="chat-thread-header__name-muted">{selectedFriend.name}</span>
+                      )}
                     </>
                   )}
                 </div>
@@ -630,7 +702,7 @@ const Chat = () => {
                 <input
                   className="chat-composer__input"
                   value={text}
-                  onChange={(event) => setText(event.target.value)}
+                  onChange={handleComposerChange}
                   placeholder={uploading ? "Uploading..." : "Write a message..."}
                   maxLength="2000"
                   disabled={uploading}
