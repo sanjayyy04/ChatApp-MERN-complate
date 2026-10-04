@@ -14,12 +14,12 @@ const App = () => {
   return (
     <BrowserRouter basename={basename}>
       <UserProvider>
-        <ProfileSheetProvider>
-          <RealtimeProvider>
+        <RealtimeProvider>
+          <ProfileSheetProvider>
             <Nav />
             <ToastContainer position="bottom-right" autoClose={2000} />
-          </RealtimeProvider>
-        </ProfileSheetProvider>
+          </ProfileSheetProvider>
+        </RealtimeProvider>
       </UserProvider>
     </BrowserRouter>
   );

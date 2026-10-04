@@ -38,7 +38,8 @@ jobs:
       - name: Build frontend
         working-directory: client
         env:
-          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          # Override in repo Settings → Variables → VITE_API_URL if your Render URL changes
+          VITE_API_URL: ${{ vars.VITE_API_URL || 'https://chatapp-mern-complate.onrender.com' }}
         run: npm run build
 
       - name: Enable SPA route fallback

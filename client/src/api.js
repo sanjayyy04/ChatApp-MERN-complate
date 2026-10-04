@@ -1,7 +1,10 @@
 const configuredApiUrl = import.meta.env.VITE_API_URL;
+const productionApiDefault = "https://chatapp-mern-complate.onrender.com";
+
 export const API_URL = configuredApiUrl === ""
   ? ""
-  : (configuredApiUrl || "http://localhost:3000");
+  : (configuredApiUrl ||
+    (import.meta.env.PROD ? productionApiDefault : "http://localhost:3000"));
 
 export const fileUrl = (relativePath) => {
   if (!relativePath) return "";

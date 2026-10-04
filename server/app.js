@@ -9,6 +9,10 @@ const { getClientOrigins } = require("./config/cors.js");
 
 const app = express();
 
+if (process.env.NODE_ENV === "production") {
+    app.set("trust proxy", 1);
+}
+
 // Body parser
 app.use(express.json());
 app.use(urlencoded({ extended: true }));
