@@ -30,7 +30,9 @@ const io = new Server(server, {
 
 io.use((socket, next) => {
     try {
-        const token = cookie.parse(socket.handshake.headers.cookie || "").token;
+        const fromAuth = socket.handshake.auth?.token;
+        const fromCookie = cookie.parse(socket.handshake.headers.cookie || "").token;
+        const token = fromAuth || fromCookie;
         if (!token) return next(new Error("Unauthorized"));
         socket.user = jwt.verify(token, process.env.JWT_SECRET);
         next();

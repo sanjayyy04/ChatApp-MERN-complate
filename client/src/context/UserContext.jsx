@@ -3,6 +3,7 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { API_URL } from "../api";
 import { connectSocket, disconnectSocket } from "../services/socket";
+import { clearAuthToken } from "../services/authToken";
 
 export const UserContext = createContext();
 
@@ -23,6 +24,7 @@ const UserProvider = ({ children }) => {
 
         setUser(response.data.data);
       } catch (error) {
+        clearAuthToken();
         setUser(null);
       } finally {
         setAuthLoading(false);
@@ -77,10 +79,8 @@ const UserProvider = ({ children }) => {
         },
       );
 
-      // Disconnect Socket.IO
       disconnectSocket();
-
-      // Remove user from context
+      clearAuthToken();
       setUser(null);
 
       // Redirect

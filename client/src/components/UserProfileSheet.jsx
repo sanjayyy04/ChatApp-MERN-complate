@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useContext, useEffect, useState } from "react";
 import axios from "axios";
 import { FiArrowLeft, FiMessageCircle, FiUserPlus } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
@@ -6,7 +6,7 @@ import { toast } from "react-toastify";
 import { API_URL, userAvatarUrl } from "../api";
 import { connectSocket } from "../services/socket";
 import MediaLightbox from "./MediaLightbox";
-import { useRealtime } from "../context/RealtimeContext";
+import { RealtimeContext } from "../context/RealtimeContext";
 import PresenceStatus from "./PresenceStatus";
 
 const UserProfileSheet = ({
@@ -19,7 +19,8 @@ const UserProfileSheet = ({
   onFriendRequestCanceled,
 }) => {
   const navigate = useNavigate();
-  const { isUserOnline } = useRealtime();
+  const realtime = useContext(RealtimeContext);
+  const isUserOnline = (userId) => realtime?.isUserOnline?.(userId) ?? false;
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [requesting, setRequesting] = useState(false);

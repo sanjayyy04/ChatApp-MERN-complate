@@ -146,7 +146,8 @@ const loginController = async (req, res) => {
             res.cookie("token", token, getAuthCookieOptions());
 
             return res.status(200).json({
-                message: "Login successful"
+                message: "Login successful",
+                token,
             });
         }
         else {

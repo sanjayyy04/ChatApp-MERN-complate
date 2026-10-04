@@ -1,9 +1,10 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/userModel.js");
+const { extractToken } = require("../utils/extractToken.js");
 
 const authMiddleware = async (req, res, next) => {
     try {
-        const token = req.cookies?.token;
+        const token = extractToken(req);
 
         if (!token) {
             return res.status(401).json({

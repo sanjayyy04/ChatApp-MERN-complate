@@ -7,6 +7,7 @@ import axios from "axios";
 import { toast } from "react-toastify";
 import { UserContext } from "../context/UserContext";
 import { API_URL } from "../api";
+import { setAuthToken } from "../services/authToken";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -39,6 +40,10 @@ const RegForm = () => {
       const response = await axios.post(`${API_URL}/api/login`, formData, {
         withCredentials: true,
       });
+
+      if (response.data?.token) {
+        setAuthToken(response.data.token);
+      }
 
       const profileResponse = await axios.get(`${API_URL}/api/profile`, {
         withCredentials: true,

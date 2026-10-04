@@ -134,15 +134,17 @@ const ProfileSheetProvider = ({ children }) => {
       }}
     >
       {children}
-      <UserProfileSheet
-        open={Boolean(profileUser)}
-        userPreview={profileUser}
-        friendIds={friendIds}
-        pendingRequestIds={pendingRequestIds}
-        onClose={closeProfile}
-        onFriendRequestSent={onFriendRequestSent}
-        onFriendRequestCanceled={refreshSocialState}
-      />
+      {profileUser ? (
+        <UserProfileSheet
+          open
+          userPreview={profileUser}
+          friendIds={friendIds}
+          pendingRequestIds={pendingRequestIds}
+          onClose={closeProfile}
+          onFriendRequestSent={onFriendRequestSent}
+          onFriendRequestCanceled={refreshSocialState}
+        />
+      ) : null}
     </ProfileSheetContext.Provider>
   );
 };

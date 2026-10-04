@@ -1,3 +1,14 @@
+import axios from "axios";
+import { getAuthToken } from "./services/authToken";
+
+axios.interceptors.request.use((config) => {
+  const token = getAuthToken();
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 const configuredApiUrl = import.meta.env.VITE_API_URL;
 const productionApiDefault = "https://chatapp-mern-complate.onrender.com";
 
