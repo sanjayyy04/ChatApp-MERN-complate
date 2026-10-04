@@ -26,6 +26,9 @@ const io = new Server(server, {
         origin: getClientOrigins(),
         credentials: true,
     },
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    transports: ["polling", "websocket"],
 });
 
 io.use((socket, next) => {
@@ -46,7 +49,7 @@ setSocialIo(io);
 setRealtimeIo(io);
 
 io.on("connection", async (socket) => {
-    const userId = socket.user.id;
+    const userId = String(socket.user.id);
     socket.join(`user:${userId}`);
     console.log("User connected:", userId);
 

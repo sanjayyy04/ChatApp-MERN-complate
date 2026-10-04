@@ -4,7 +4,7 @@ import { FiArrowLeft, FiCheck, FiFileText, FiImage, FiPaperclip, FiSend, FiTrash
 import { toast } from "react-toastify";
 import { UserContext } from "../context/UserContext";
 import { API_URL, fileUrl, userAvatarUrl } from "../api";
-import { connectSocket } from "../services/socket";
+import { connectSocket, emitSocket } from "../services/socket";
 import { useLocation } from "react-router-dom";
 import MediaLightbox from "./MediaLightbox";
 import UsernameLink from "./UsernameLink";
@@ -290,7 +290,7 @@ const Chat = () => {
   }, [user, selectedFriend]);
 
   const respondToRequest = async (requestId, action) => {
-    connectSocket().emit("friend-request:respond", { requestId, action }, (result) => {
+    emitSocket("friend-request:respond", { requestId, action }, (result) => {
       if (!result?.ok) return toast.error(result?.message || "Could not update request.");
       toast.success(`Friend request ${action}ed.`);
       loadContacts();
@@ -300,7 +300,7 @@ const Chat = () => {
   const sendMessage = (event) => {
     event.preventDefault();
     if (!text.trim() || !selectedFriend) return;
-    connectSocket().emit("message:send", { receiverId: selectedFriend._id, text }, (result) => {
+    emitSocket("message:send", { receiverId: selectedFriend._id, text }, (result) => {
       if (!result?.ok) toast.error(result?.message || "Could not send message.");
     });
     setText("");

@@ -9,8 +9,10 @@ const setMessageIo = (io) => {
 
 const broadcastMessage = (message) => {
     if (!ioRef || !message) return;
-    ioRef.to(`user:${message.sender}`).emit("message:new", message);
-    ioRef.to(`user:${message.receiver}`).emit("message:new", message);
+    const senderRoom = `user:${String(message.sender)}`;
+    const receiverRoom = `user:${String(message.receiver)}`;
+    ioRef.to(senderRoom).emit("message:new", message);
+    ioRef.to(receiverRoom).emit("message:new", message);
 };
 
 const broadcastMessageDeleted = ({ messageId, sender, receiver }) => {
