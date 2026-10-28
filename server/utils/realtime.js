@@ -54,6 +54,8 @@ const handleSocketDisconnect = async (userId) => {
     }
 };
 
+const isUserOnline = (userId) => (onlineCounts.get(String(userId)) || 0) > 0;
+
 const emitFriendRequestReceived = (toUserId, payload) => {
     if (!ioRef) return;
     ioRef.to(`user:${toUserId}`).emit("friend-request:received", payload);
@@ -64,4 +66,5 @@ module.exports = {
     handleSocketConnection,
     handleSocketDisconnect,
     emitFriendRequestReceived,
+    isUserOnline,
 };

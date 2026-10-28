@@ -18,11 +18,28 @@
   --radius-md: 0.75rem;
   --radius-lg: 1rem;
   --radius-pill: 999px;
-  --chat-dock-inset: 5.75rem;
+  --crud-chat-header-height: 3.25rem;
+  --crud-chat-tab-bar-height: 3.5rem;
+  --crud-chat-shell-bg: #0b141a;
+  --crud-chat-panel-bg: #111b21;
+  --crud-chat-header-bg: #202c33;
+  --crud-chat-compose-bg: #202c33;
+  --crud-chat-rail-width: 4.25rem;
+  --crud-chat-list-pane-width: 22.5rem;
+  --crud-chat-settings-nav-width: 16.5rem;
+  --crud-chat-dock-inset: var(--crud-chat-tab-bar-height);
+  --crud-chat-desktop-inset-top: 1.35rem;
+  --crud-chat-desktop-inset-x: 1.15rem;
+  --crud-chat-desktop-inset-bottom: 1rem;
+  --crud-chat-desktop-gap: 0.85rem;
+  --crud-chat-desktop-card-radius: 1.05rem;
+  --crud-chat-rail-inner-top: 0.65rem;
+  --crud-motion-fast: 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  --crud-glow-accent: 0 0 32px rgba(255, 214, 10, 0.22);
 }
 
-body.chat-thread-open {
-  --chat-dock-inset: 0px;
+body.crud-chat-thread-open {
+  --crud-chat-dock-inset: 0px;
 }
 
 *,
@@ -39,18 +56,21 @@ body {
   margin: 0;
   min-height: 100vh;
   color: var(--color-ink);
-  background-color: #050505;
-  background-image:
-    radial-gradient(ellipse 90% 60% at 0% 0%, rgba(255, 214, 10, 0.08), transparent 55%),
-    radial-gradient(ellipse 70% 50% at 100% 100%, rgba(255, 255, 255, 0.04), transparent 50%),
-    linear-gradient(180deg, #0a0a0a 0%, #111 45%, #050505 100%);
-  background-attachment: fixed;
+  background-color: #050809;
   font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
+@media (min-width: 900px) {
+  body {
+    background-color: #050809;
+  }
+}
+
 #root {
-  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
 }
 
 a {
@@ -61,7 +81,7 @@ a:hover {
   color: var(--color-accent);
 }
 
-.glass-surface {
+.crud-chat-glass {
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   background: var(--glass-bg);
@@ -71,15 +91,14 @@ a:hover {
 }
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .glass-surface,
-  .dock-panel,
-  .profile-panel,
-  .users-grid,
-  .people-modal__panel,
-  .page-hero,
-  .chat-sidebar,
-  .chat-contact,
-  .chat-request {
+
+  .crud-chat-glass,
+  .crud-chat-profile-panel,
+  .crud-chat-users-grid,
+  .crud-chat-people-modal__panel,
+  .crud-chat-sidebar,
+  .crud-chat-contact,
+  .crud-chat-request {
     background: #1a1a1a;
   }
 }

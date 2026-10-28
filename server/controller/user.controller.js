@@ -1,72 +1,57 @@
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
 const user = require("../models/userModel.js");
 const { removeUploadedFile } = require("../middleware/upload.middleware.js");
 const { getAuthCookieOptions } = require("../utils/authCookie.js");
 const { broadcastProfileUpdated } = require("../utils/socialEvents.js");
+const { escapeRegex } = require("../utils/escapeRegex");
+const { PUBLIC_USER_SELECT, toPublicUser } = require("../utils/publicUser.js");
 
 const helloWorld = (req, res) => {
     res.send("Hello World! api is running....");
 }
 
-const createUser = async (req, res) => {
-    const { userName, name, phone, email, password } = req.body;
-    // Check if user already exists
-    const existingUser = await user.findOne({ phone, userName });
-
-    if (existingUser) {
-        return res.status(400).json({
-            message: "User already exists"
-        });
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    const newUser = new user({
-        userName,
-        name,
-        phone,
-        email,
-        password: hashedPassword
-    });
-
-    await newUser.save();
-
-    res.status(201).json({
-        message: "User created successfully",
-        data: newUser
-    });
-
-}
-
 const getAllUsers = async (req, res) => {
-
-    const users = await user.find({ _id: { $ne: req.user._id } }).select("-password");
-
-    res.status(200).json({
-        message: "Users retrieved successfully",
-        data: users
+    return res.status(403).json({
+        message: "Browse is disabled. Search by username to find people.",
     });
 };
 
+const SEARCH_MIN_LEN = 2;
+const SEARCH_MAX_LEN = 32;
+
 const searchUsers = async (req, res) => {
-    const username = req.query.username?.trim();
+    let username = (req.query.username || req.query.q || "").trim();
+    if (username.startsWith("@")) username = username.slice(1).trim();
 
     if (!username) {
         return res.status(400).json({
-            message: "Username is required"
+            message: "Enter a username to search.",
         });
     }
 
+    if (username.length < SEARCH_MIN_LEN) {
+        return res.status(400).json({
+            message: `Enter at least ${SEARCH_MIN_LEN} characters.`,
+        });
+    }
+
+    if (username.length > SEARCH_MAX_LEN) {
+        return res.status(400).json({
+            message: "Search query is too long.",
+        });
+    }
+
+    const pattern = escapeRegex(username);
     const users = await user.find({
-        userName: { $regex: username, $options: "i" },
-        _id: { $ne: req.user._id }
-    }).select("-password").limit(20);
+        userName: { $regex: pattern, $options: "i" },
+        _id: { $ne: req.user._id },
+    })
+        .select(PUBLIC_USER_SELECT)
+        .limit(15)
+        .lean();
 
     return res.status(200).json({
         message: "Users found successfully",
-        data: users
+        data: users.map(toPublicUser),
     });
 };
 
@@ -78,21 +63,25 @@ const getUserById = async (req, res) => {
 
         if (!userById) {
             return res.status(404).json({
-                message: "User not found"
+                message: "User not found",
             });
         }
+
+        const isSelf = String(userById._id) === String(req.user._id);
+        const payload = isSelf ? userById : toPublicUser(userById);
+
         res.status(200).json({
             message: "User retrieved successfully",
-            data: userById
+            data: payload,
         });
     }
     catch (error) {
         res.status(404).json({
             message: "User not found",
-            error: error.message
+            error: error.message,
         });
     }
-}
+};
 
 const deleteUserById = async (req, res) => {
     const { id } = req.params;
@@ -112,72 +101,25 @@ const deleteUserById = async (req, res) => {
     }
 }
 
-const loginController = async (req, res) => {
+const logoutController = async (req, res) => {
     try {
-        const { email, password } = req.body;
-
-        if (!email || !password) {
-            return res.status(400).json({
-                message: "Email and password are required"
-            });
-        }
-
-        const existingUser = await user.findOne({ email });
-
-        if (!existingUser) {
-            return res.status(401).json({
-                message: "Invalid email or password"
-            });
-        }
-
-        const isMatch = await bcrypt.compare(password, existingUser.password);
-
-        if (isMatch) {
-            const token = jwt.sign(
-                {
-                    id: existingUser._id,
-                    userName: existingUser.userName,
-                    name: existingUser.name,
-                    email: existingUser.email
-                },
-                process.env.JWT_SECRET,
-                { expiresIn: "7d" }
-            );
-
-            res.cookie("token", token, getAuthCookieOptions());
-
-            return res.status(200).json({
-                message: "Login successful",
-                token,
-            });
-        }
-        else {
-            return res.status(401).json({
-                message: "Invalid credentials"
-            });
-        }
+        await user.updateOne({ _id: req.user._id }, { $inc: { sessionVersion: 1 } });
+    } catch {
+        /* ignore */
     }
-    catch (error) {
-        return res.status(500).json({
-            message: "Login failed",
-            error: error.message
-        });
-    }
-
-}
-
-const logoutController = (req, res) => {
     res.clearCookie("token", getAuthCookieOptions());
 
     return res.status(200).json({
-        message: "Logout successful"
+        message: "Logout successful",
     });
 };
 
 const getProfileController = (req, res) => {
+    const data = req.user.toObject ? req.user.toObject() : { ...req.user };
+    delete data.password;
     return res.status(200).json({
         message: "Profile fetched successfully",
-        data: req.user,
+        data,
     });
 };
 
@@ -244,4 +186,48 @@ const updateProfileController = async (req, res) => {
     }
 };
 
-module.exports = { helloWorld, createUser, getAllUsers, searchUsers, getUserById, deleteUserById, loginController, logoutController, getProfileController, updateProfileController };
+const deprecatedLegacyAuth = (req, res) => res.status(410).json({
+    message: "This endpoint is retired. Use POST /api/auth/register or POST /api/auth/login/start instead.",
+    code: "ENDPOINT_RETIRED",
+});
+
+const updateNotificationPreferences = async (req, res) => {
+    try {
+        const prefs = req.body?.notificationPreferences || req.body;
+        const allowed = ["emailSecurityAlerts", "emailLoginAlerts", "emailUnreadMessages"];
+        const currentUser = await user.findById(req.user._id);
+        if (!currentUser) {
+            return res.status(404).json({ message: "User not found" });
+        }
+        if (!currentUser.notificationPreferences) {
+            currentUser.notificationPreferences = {};
+        }
+        allowed.forEach((key) => {
+            if (typeof prefs[key] === "boolean") {
+                currentUser.notificationPreferences[key] = prefs[key];
+            }
+        });
+        await currentUser.save();
+        const data = currentUser.toObject();
+        delete data.password;
+        return res.json({
+            message: "Notification preferences updated.",
+            data,
+        });
+    } catch (error) {
+        return res.status(500).json({ message: "Could not update preferences." });
+    }
+};
+
+module.exports = {
+    helloWorld,
+    deprecatedLegacyAuth,
+    getAllUsers,
+    searchUsers,
+    getUserById,
+    deleteUserById,
+    logoutController,
+    getProfileController,
+    updateProfileController,
+    updateNotificationPreferences,
+};

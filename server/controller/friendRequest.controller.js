@@ -98,14 +98,14 @@ const getUserFollowStats = async (req, res) => {
 
 const getFollowers = async (req, res) => {
     const requests = await FriendRequest.find({ to: req.user._id, status: "accepted" })
-        .populate("from", "userName name email")
+        .populate("from", "userName name avatar bio")
         .sort({ updatedAt: -1 });
     return res.json({ data: requests.map((request) => request.from) });
 };
 
 const getFollowing = async (req, res) => {
     const requests = await FriendRequest.find({ from: req.user._id, status: "accepted" })
-        .populate("to", "userName name email")
+        .populate("to", "userName name avatar bio")
         .sort({ updatedAt: -1 });
     return res.json({ data: requests.map((request) => request.to) });
 };

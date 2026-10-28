@@ -151,7 +151,7 @@ const RealtimeProvider = ({ children }) => {
 
     if (notification.type === "message") {
       clearUnreadForFriend(notification.fromUserId);
-      navigate("/chat", {
+      navigate("/chats", {
         state: {
           selectedFriend: notification.fromUser || {
             _id: notification.fromUserId,
@@ -165,7 +165,7 @@ const RealtimeProvider = ({ children }) => {
     }
 
     if (notification.type === "friend_request") {
-      navigate("/chat");
+      navigate("/chats");
       setPanelOpen(false);
     }
   }, [clearUnreadForFriend, navigate]);

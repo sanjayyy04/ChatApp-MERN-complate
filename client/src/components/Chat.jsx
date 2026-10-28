@@ -1,17 +1,20 @@
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
-import { FiArrowLeft, FiCheck, FiFileText, FiImage, FiPaperclip, FiSend, FiTrash2, FiVideo, FiX } from "react-icons/fi";
+import { FiArrowLeft, FiCheck, FiFileText, FiImage, FiMoreVertical, FiPaperclip, FiSearch, FiSend, FiTrash2, FiVideo, FiX } from "react-icons/fi";
 import { toast } from "react-toastify";
 import { UserContext } from "../context/UserContext";
 import { API_URL, fileUrl, userAvatarUrl } from "../api";
 import { connectSocket, emitSocket } from "../services/socket";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import MediaLightbox from "./MediaLightbox";
 import UsernameLink from "./UsernameLink";
 import { useProfileSheet } from "../context/ProfileSheetContext";
 import { useRealtime } from "../context/RealtimeContext";
 import PresenceStatus from "./PresenceStatus";
 import { buildMessageTimeline, formatMessageTime } from "../utils/chatDates";
+import NotificationBell from "./NotificationBell";
+import UserSearchResults from "./UserSearchResults";
+import { useUserSearch } from "../hooks/useUserSearch";
 
 const MessageBody = ({ message, onOpenImageClick, onOpenVideoClick, onOpenFileClick }) => {
   const type = message.messageType || "text";
@@ -19,7 +22,7 @@ const MessageBody = ({ message, onOpenImageClick, onOpenVideoClick, onOpenFileCl
 
   if (type === "video" && attachmentSrc) {
     return (
-      <button type="button" className="chat-message__media chat-message__media--video" onClick={onOpenVideoClick}>
+      <button type="button" className="crud-chat-message__media crud-chat-message__media--video" onClick={onOpenVideoClick}>
         <video src={attachmentSrc} muted playsInline preload="metadata" />
         {message.text ? <p>{message.text}</p> : null}
       </button>
@@ -28,7 +31,7 @@ const MessageBody = ({ message, onOpenImageClick, onOpenVideoClick, onOpenFileCl
 
   if (type === "image" && attachmentSrc) {
     return (
-      <button type="button" className="chat-message__media" onClick={onOpenImageClick}>
+      <button type="button" className="crud-chat-message__media" onClick={onOpenImageClick}>
         <img src={attachmentSrc} alt={message.attachmentName || "Shared image"} />
         {message.text ? <p>{message.text}</p> : null}
       </button>
@@ -39,7 +42,7 @@ const MessageBody = ({ message, onOpenImageClick, onOpenVideoClick, onOpenFileCl
     return (
       <button
         type="button"
-        className="chat-message__file"
+        className="crud-chat-message__file"
         onClick={onOpenFileClick}
       >
         <FiPaperclip aria-hidden="true" />
@@ -126,7 +129,7 @@ const ChatMessage = ({
 
   return (
     <div
-      className={`chat-message ${isSent ? "chat-message--sent" : "chat-message--received"}${isSelected ? " chat-message--selected" : ""}${selectionActive ? " chat-message--select-mode" : ""}`}
+      className={`crud-chat-message ${isSent ? "crud-chat-message--sent" : "crud-chat-message--received"}${isSelected ? " crud-chat-message--selected" : ""}${selectionActive ? " crud-chat-message--select-mode" : ""}`}
       onContextMenu={onContextMenu}
       onClick={longPress.wrapClick(() => {
         if (selectionActive) onToggleSelect();
@@ -143,11 +146,11 @@ const ChatMessage = ({
       aria-selected={isSelected}
     >
       {selectionActive && (
-        <span className={`chat-message__check${isSelected ? " chat-message__check--on" : ""}`} aria-hidden="true">
+        <span className={`crud-chat-message__check${isSelected ? " crud-chat-message__check--on" : ""}`} aria-hidden="true">
           {isSelected ? <FiCheck /> : null}
         </span>
       )}
-      <div className="chat-message__content">
+      <div className="crud-chat-message__content">
         <MessageBody
           message={message}
           onOpenImageClick={selectionActive ? undefined : openImage}
@@ -155,7 +158,7 @@ const ChatMessage = ({
           onOpenFileClick={selectionActive ? undefined : openFile}
         />
         <time
-          className="chat-message__time"
+          className="crud-chat-message__time"
           dateTime={message.createdAt || undefined}
         >
           {formatMessageTime(message.createdAt || message.updatedAt)}
@@ -166,7 +169,7 @@ const ChatMessage = ({
 };
 
 const ChatDateDivider = ({ label }) => (
-  <div className="chat-date-divider" role="separator" aria-label={label}>
+  <div className="crud-chat-date-divider" role="separator" aria-label={label}>
     <span>{label}</span>
   </div>
 );
@@ -184,7 +187,7 @@ const ChatFriendContact = ({
   return (
     <button
       type="button"
-      className={`chat-contact ${active ? "chat-contact--active" : ""}`}
+      className={`crud-chat-contact ${active ? "crud-chat-contact--active" : ""}`}
       onClick={longPress.wrapClick(() => onSelect(friend))}
       onContextMenu={(event) => {
         event.preventDefault();
@@ -198,23 +201,23 @@ const ChatFriendContact = ({
       onMouseUp={longPress.onMouseUp}
       onMouseLeave={longPress.onMouseLeave}
     >
-      <span className="chat-contact__avatar-wrap">
+      <span className="crud-chat-contact__avatar-wrap">
         <img src={userAvatarUrl(friend)} alt="" />
-        {isUserOnline(friend._id) && <span className="chat-contact__online" aria-hidden="true" />}
+        {isUserOnline(friend._id) && <span className="crud-chat-contact__online" aria-hidden="true" />}
       </span>
-      <span className="chat-contact__meta">
-        <UsernameLink person={friend} />
+      <span className="crud-chat-contact__meta">
+        <span className="crud-chat-contact__username">@{friend.userName}</span>
         <small>
           <PresenceStatus
             online={isUserOnline(friend._id)}
             typing={isUserTyping(friend._id)}
-            className="chat-contact__presence"
+            className="crud-chat-contact__presence"
           />
           {!isUserOnline(friend._id) && !isUserTyping(friend._id) ? friend.name : null}
         </small>
       </span>
       {getUnreadForFriend(friend._id) > 0 && (
-        <span className="chat-contact__badge" aria-label="Unread messages">
+        <span className="crud-chat-contact__badge" aria-label="Unread messages">
           {getUnreadForFriend(friend._id)}
         </span>
       )}
@@ -240,8 +243,14 @@ const Chat = () => {
   const videoInputRef = useRef(null);
   const documentInputRef = useRef(null);
   const [attachSheetOpen, setAttachSheetOpen] = useState(false);
+  const [friendListQuery, setFriendListQuery] = useState("");
   const location = useLocation();
-  const { openProfile } = useProfileSheet();
+  const navigate = useNavigate();
+  const { closeProfile, openProfile, friendIds, pendingRequestIds, refreshSocialState } = useProfileSheet();
+  const { results: peopleSearchResults, loading: peopleSearchLoading, error: peopleSearchError, minLength: peopleSearchMin } = useUserSearch(friendListQuery, {
+    enabled: Boolean(user),
+    excludeFriendIds: friendIds,
+  });
   const {
     setActiveChatUserId,
     clearUnreadForFriend,
@@ -292,10 +301,24 @@ const Chat = () => {
     };
   }, [user]);
 
+  const openFriendChat = useCallback((friend) => {
+    closeProfile();
+    setSelectedFriend(friend);
+  }, [closeProfile]);
+
   useEffect(() => {
     const person = location.state?.selectedFriend;
-    if (person) setSelectedFriend(person);
-  }, [location.state]);
+    if (person?._id) {
+      closeProfile();
+      setSelectedFriend(person);
+      navigate("/chats", { replace: true, state: null });
+      return;
+    }
+    if (location.state?.resetThread) {
+      setSelectedFriend(null);
+      navigate("/chats", { replace: true, state: null });
+    }
+  }, [location.state, closeProfile, navigate]);
 
   useEffect(() => {
     setSelectedMessageIds([]);
@@ -394,8 +417,19 @@ const Chat = () => {
   };
 
   useEffect(() => {
-    document.body.classList.toggle("chat-thread-open", Boolean(selectedFriend));
-    return () => document.body.classList.remove("chat-thread-open");
+    const mq = window.matchMedia("(max-width: 899px)");
+    const syncThreadClass = () => {
+      document.body.classList.toggle(
+        "crud-chat-thread-open",
+        mq.matches && Boolean(selectedFriend),
+      );
+    };
+    syncThreadClass();
+    mq.addEventListener("change", syncThreadClass);
+    return () => {
+      mq.removeEventListener("change", syncThreadClass);
+      document.body.classList.remove("crud-chat-thread-open");
+    };
   }, [selectedFriend]);
 
   useEffect(() => {
@@ -562,12 +596,44 @@ const Chat = () => {
 
   const messageTimeline = useMemo(() => buildMessageTimeline(messages), [messages]);
 
-  if (!user) return <div className="container mt-5">Please log in to view chats.</div>;
+  const filteredFriends = useMemo(() => {
+    const query = friendListQuery.trim().toLowerCase();
+    if (!query) return friends;
+    return friends.filter((friend) => {
+      const name = (friend.name || "").toLowerCase();
+      const userName = (friend.userName || "").toLowerCase();
+      return name.includes(query) || userName.includes(query);
+    });
+  }, [friends, friendListQuery]);
+
+  const sendFriendRequestTo = async (userId, event) => {
+    event?.stopPropagation();
+    try {
+      await axios.post(`${API_URL}/api/friend-requests/${userId}`, {}, { withCredentials: true });
+      toast.success("Friend request sent.");
+      refreshSocialState();
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Could not send request.");
+    }
+  };
+
+  const cancelFriendRequestTo = async (userId, event) => {
+    event?.stopPropagation();
+    try {
+      await axios.delete(`${API_URL}/api/friend-requests/${userId}`, { withCredentials: true });
+      toast.success("Request cancelled.");
+      refreshSocialState();
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Could not cancel request.");
+    }
+  };
+
+  if (!user) return null;
 
   const threadOpen = Boolean(selectedFriend);
 
   return (
-    <main className={`chat-page${threadOpen ? " chat-page--thread-open" : ""}`}>
+    <main className={`crud-chat-page${threadOpen ? " crud-chat-page--thread-open" : ""}`}>
       <MediaLightbox
         open={Boolean(lightbox)}
         onClose={() => setLightbox(null)}
@@ -580,20 +646,20 @@ const Chat = () => {
 
       {friendSheetFriend && (
         <div
-          className="chat-message-sheet"
+          className="crud-chat-message-sheet"
           role="presentation"
           onClick={() => !friendActionLoading && setFriendSheetFriend(null)}
         >
           <div
-            className="chat-message-sheet__panel"
+            className="crud-chat-message-sheet__panel"
             role="dialog"
             aria-label={`Actions for ${friendSheetFriend.userName}`}
             onClick={(event) => event.stopPropagation()}
           >
-            <p className="chat-message-sheet__hint">@{friendSheetFriend.userName}</p>
+            <p className="crud-chat-message-sheet__hint">@{friendSheetFriend.userName}</p>
             <button
               type="button"
-              className="chat-message-sheet__action chat-message-sheet__action--danger"
+              className="crud-chat-message-sheet__action crud-chat-message-sheet__action--danger"
               disabled={friendActionLoading}
               onClick={() => runFriendSheetAction("unfollow_chat")}
             >
@@ -601,7 +667,7 @@ const Chat = () => {
             </button>
             <button
               type="button"
-              className="chat-message-sheet__action"
+              className="crud-chat-message-sheet__action"
               disabled={friendActionLoading}
               onClick={() => runFriendSheetAction("unfollow")}
             >
@@ -609,7 +675,7 @@ const Chat = () => {
             </button>
             <button
               type="button"
-              className="chat-message-sheet__action"
+              className="crud-chat-message-sheet__action"
               disabled={friendActionLoading}
               onClick={() => runFriendSheetAction("delete_chat")}
             >
@@ -617,7 +683,7 @@ const Chat = () => {
             </button>
             <button
               type="button"
-              className="chat-message-sheet__action chat-message-sheet__action--cancel"
+              className="crud-chat-message-sheet__action crud-chat-message-sheet__action--cancel"
               disabled={friendActionLoading}
               onClick={() => setFriendSheetFriend(null)}
             >
@@ -629,47 +695,47 @@ const Chat = () => {
 
       {attachSheetOpen && (
         <div
-          className="chat-message-sheet chat-attach-sheet"
+          className="crud-chat-message-sheet crud-chat-attach-sheet"
           role="presentation"
           onClick={() => !uploading && setAttachSheetOpen(false)}
         >
           <div
-            className="chat-message-sheet__panel chat-attach-sheet__panel"
+            className="crud-chat-message-sheet__panel crud-chat-attach-sheet__panel"
             role="dialog"
             aria-label="Send attachment"
             onClick={(event) => event.stopPropagation()}
           >
-            <p className="chat-message-sheet__hint">Send attachment</p>
-            <div className="chat-attach-sheet__options">
+            <p className="crud-chat-message-sheet__hint">Send attachment</p>
+            <div className="crud-chat-attach-sheet__options">
               <button
                 type="button"
-                className="chat-attach-sheet__option"
+                className="crud-chat-attach-sheet__option"
                 disabled={uploading}
                 onClick={() => openAttachPicker(imageInputRef)}
               >
-                <span className="chat-attach-sheet__icon" aria-hidden="true">
+                <span className="crud-chat-attach-sheet__icon" aria-hidden="true">
                   <FiImage />
                 </span>
                 Photos
               </button>
               <button
                 type="button"
-                className="chat-attach-sheet__option"
+                className="crud-chat-attach-sheet__option"
                 disabled={uploading}
                 onClick={() => openAttachPicker(videoInputRef)}
               >
-                <span className="chat-attach-sheet__icon chat-attach-sheet__icon--video" aria-hidden="true">
+                <span className="crud-chat-attach-sheet__icon crud-chat-attach-sheet__icon--video" aria-hidden="true">
                   <FiVideo />
                 </span>
                 Videos
               </button>
               <button
                 type="button"
-                className="chat-attach-sheet__option"
+                className="crud-chat-attach-sheet__option"
                 disabled={uploading}
                 onClick={() => openAttachPicker(documentInputRef)}
               >
-                <span className="chat-attach-sheet__icon chat-attach-sheet__icon--doc" aria-hidden="true">
+                <span className="crud-chat-attach-sheet__icon crud-chat-attach-sheet__icon--doc" aria-hidden="true">
                   <FiFileText />
                 </span>
                 Document
@@ -677,7 +743,7 @@ const Chat = () => {
             </div>
             <button
               type="button"
-              className="chat-message-sheet__action chat-message-sheet__action--cancel"
+              className="crud-chat-message-sheet__action crud-chat-message-sheet__action--cancel"
               disabled={uploading}
               onClick={() => setAttachSheetOpen(false)}
             >
@@ -689,23 +755,23 @@ const Chat = () => {
 
       {deleteSheetOpen && (
         <div
-          className="chat-message-sheet"
+          className="crud-chat-message-sheet"
           role="presentation"
           onClick={() => !deletingMessage && setDeleteSheetOpen(false)}
         >
           <div
-            className="chat-message-sheet__panel"
+            className="crud-chat-message-sheet__panel"
             role="dialog"
             aria-label="Delete messages"
             onClick={(event) => event.stopPropagation()}
           >
-            <p className="chat-message-sheet__hint">
+            <p className="crud-chat-message-sheet__hint">
               Delete {selectedMessageIds.length} message{selectedMessageIds.length === 1 ? "" : "s"}?
             </p>
             {canDeleteForEveryone && (
               <button
                 type="button"
-                className="chat-message-sheet__action chat-message-sheet__action--danger"
+                className="crud-chat-message-sheet__action crud-chat-message-sheet__action--danger"
                 disabled={deletingMessage}
                 onClick={() => deleteSelectedMessages("everyone")}
               >
@@ -714,7 +780,7 @@ const Chat = () => {
             )}
             <button
               type="button"
-              className="chat-message-sheet__action chat-message-sheet__action--danger"
+              className="crud-chat-message-sheet__action crud-chat-message-sheet__action--danger"
               disabled={deletingMessage}
               onClick={() => deleteSelectedMessages("me")}
             >
@@ -722,7 +788,7 @@ const Chat = () => {
             </button>
             <button
               type="button"
-              className="chat-message-sheet__action chat-message-sheet__action--cancel"
+              className="crud-chat-message-sheet__action crud-chat-message-sheet__action--cancel"
               disabled={deletingMessage}
               onClick={() => setDeleteSheetOpen(false)}
             >
@@ -732,19 +798,57 @@ const Chat = () => {
         </div>
       )}
 
-      <section className={`chat-layout${threadOpen ? " chat-layout--thread-open" : ""}`}>
-        <aside className="chat-sidebar" aria-label="Chat contacts">
-          <h2>Chats</h2>
-          {requests.length > 0 && (
+      <section className={`crud-chat-layout${threadOpen ? " crud-chat-layout--thread-open" : ""}`}>
+        <aside className="crud-chat-sidebar" aria-label="Chat contacts">
+          <header className="crud-chat-sidebar__toolbar">
+            <h2 className="crud-chat-sidebar__title">Chats</h2>
+            <div className="crud-chat-sidebar__toolbar-actions">
+              <NotificationBell />
+              <button type="button" className="crud-chat-sidebar__menu-btn" aria-label="Menu" title="Menu">
+                <FiMoreVertical size={20} />
+              </button>
+            </div>
+          </header>
+          <label className="crud-chat-sidebar__search">
+            <FiSearch aria-hidden="true" />
+            <input
+              type="search"
+              value={friendListQuery}
+              onChange={(event) => setFriendListQuery(event.target.value)}
+              placeholder="Search or start a new chat"
+              autoComplete="off"
+            />
+          </label>
+          <div className="crud-chat-sidebar__body">
+          {friendListQuery.trim().length >= peopleSearchMin && (
+            <section className="crud-chat-sidebar__people" aria-label="Search people">
+              <h3 className="crud-chat-sidebar__section-title">People</h3>
+              <UserSearchResults
+                compact
+                results={peopleSearchResults}
+                loading={peopleSearchLoading}
+                error={peopleSearchError}
+                query={friendListQuery}
+                minLength={peopleSearchMin}
+                friendIds={friendIds}
+                pendingRequestIds={pendingRequestIds}
+                onOpenProfile={openProfile}
+                onOpenChat={openFriendChat}
+                onSendRequest={sendFriendRequestTo}
+                onCancelRequest={cancelFriendRequestTo}
+              />
+            </section>
+          )}
+          {requests.length > 0 && !friendListQuery.trim() && (
             <>
-              <h3 className="chat-sidebar__requests-title">
+              <h3 className="crud-chat-sidebar__requests-title">
                 Requests
                 {pendingRequestCount > 0 && (
-                  <span className="chat-sidebar__requests-badge">{pendingRequestCount}</span>
+                  <span className="crud-chat-sidebar__requests-badge">{pendingRequestCount}</span>
                 )}
               </h3>
               {requests.map((request) => (
-                <div className="chat-request" key={request._id}>
+                <div className="crud-chat-request" key={request._id}>
                   <UsernameLink person={request.from} />
                   <button type="button" onClick={() => respondToRequest(request._id, "accept")}>Accept</button>
                   <button type="button" onClick={() => respondToRequest(request._id, "reject")}>Reject</button>
@@ -752,28 +856,35 @@ const Chat = () => {
               ))}
             </>
           )}
-          <h3>Friends</h3>
-          {friends.length ? friends.map((friend) => (
+          {!friendListQuery.trim() ? (
+            <h3 className="crud-chat-sidebar__section-title">Chats</h3>
+          ) : null}
+          {filteredFriends.length ? filteredFriends.map((friend) => (
             <ChatFriendContact
               key={friend._id}
               friend={friend}
               active={selectedFriend?._id === friend._id}
-              onSelect={setSelectedFriend}
+              onSelect={openFriendChat}
               onLongPress={() => setFriendSheetFriend(friend)}
               isUserOnline={isUserOnline}
               isUserTyping={isUserTyping}
               getUnreadForFriend={getUnreadForFriend}
             />
-          )) : <p>No accepted friends yet.</p>}
+          )) : (
+            <p className="crud-chat-sidebar__hint">
+              {friends.length ? "No chats match your search." : "No accepted friends yet."}
+            </p>
+          )}
+          </div>
         </aside>
 
-        <section className="chat-panel" aria-label="Chat conversation">
+        <section className="crud-chat-panel" aria-label="Chat conversation">
           {selectedFriend ? (
             <>
-              <header className={`chat-thread-header${selectionActive ? " chat-thread-header--select" : ""}`}>
+              <header className={`crud-chat-thread-header${selectionActive ? " crud-chat-thread-header--select" : ""}`}>
                 <button
                   type="button"
-                  className="chat-back"
+                  className="crud-chat-back"
                   onClick={onHeaderBack}
                   aria-label={selectionActive ? "Cancel selection" : "Back to chats"}
                 >
@@ -782,18 +893,18 @@ const Chat = () => {
                 {!selectionActive && (
                   <button
                     type="button"
-                    className="chat-thread-header__avatar-btn"
+                    className="crud-chat-thread-header__avatar-btn"
                     onClick={() => openProfile(selectedFriend)}
                     aria-label={`View ${selectedFriend.userName}'s profile`}
                   >
                     <img
-                      className="chat-thread-header__avatar"
+                      className="crud-chat-thread-header__avatar"
                       src={userAvatarUrl(selectedFriend)}
                       alt=""
                     />
                   </button>
                 )}
-                <div className="chat-thread-header__meta">
+                <div className="crud-chat-thread-header__meta">
                   {selectionActive ? (
                     <>
                       <strong>{selectedMessageIds.length} selected</strong>
@@ -802,18 +913,18 @@ const Chat = () => {
                   ) : (
                     <>
                       <strong>
-                        <UsernameLink person={selectedFriend} className="username-link--header" />
+                        <UsernameLink person={selectedFriend} className="crud-chat-username-link--header" />
                       </strong>
                       <PresenceStatus
                         online={isUserOnline(selectedFriend._id)}
                         typing={isUserTyping(selectedFriend._id)}
-                        className="chat-thread-header__presence"
+                        className="crud-chat-thread-header__presence"
                       />
                       {!isUserTyping(selectedFriend._id) && !isUserOnline(selectedFriend._id) && (
                         <span>{selectedFriend.name}</span>
                       )}
                       {!isUserTyping(selectedFriend._id) && isUserOnline(selectedFriend._id) && (
-                        <span className="chat-thread-header__name-muted">{selectedFriend.name}</span>
+                        <span className="crud-chat-thread-header__name-muted">{selectedFriend.name}</span>
                       )}
                     </>
                   )}
@@ -821,7 +932,7 @@ const Chat = () => {
                 {selectionActive && (
                   <button
                     type="button"
-                    className="chat-thread-header__delete"
+                    className="crud-chat-thread-header__delete"
                     onClick={() => setDeleteSheetOpen(true)}
                     disabled={deletingMessage}
                     aria-label="Delete selected messages"
@@ -830,7 +941,7 @@ const Chat = () => {
                   </button>
                 )}
               </header>
-              <div className="chat-messages">
+              <div className="crud-chat-messages">
                 {messageTimeline.map((item) => {
                   if (item.kind === "date") {
                     return <ChatDateDivider key={item.id} label={item.label} />;
@@ -851,9 +962,9 @@ const Chat = () => {
                     />
                   );
                 })}
-                <div ref={messagesEndRef} className="chat-messages__anchor" aria-hidden="true" />
+                <div ref={messagesEndRef} className="crud-chat-messages__anchor" aria-hidden="true" />
               </div>
-              <form className={`chat-composer${selectionActive ? " chat-composer--hidden" : ""}`} onSubmit={sendMessage}>
+              <form className={`crud-chat-composer${selectionActive ? " crud-chat-composer--hidden" : ""}`} onSubmit={sendMessage}>
                 <input
                   ref={imageInputRef}
                   type="file"
@@ -877,7 +988,7 @@ const Chat = () => {
                 />
                 <button
                   type="button"
-                  className="chat-composer__attach"
+                  className="crud-chat-composer__attach"
                   onClick={() => setAttachSheetOpen(true)}
                   disabled={uploading}
                   aria-label="Attach photos, videos, or documents"
@@ -886,20 +997,20 @@ const Chat = () => {
                   <FiPaperclip />
                 </button>
                 <input
-                  className="chat-composer__input"
+                  className="crud-chat-composer__input"
                   value={text}
                   onChange={handleComposerChange}
                   placeholder={uploading ? "Uploading..." : "Write a message..."}
                   maxLength="2000"
                   disabled={uploading}
                 />
-                <button className="chat-composer__send" type="submit" disabled={uploading} aria-label="Send message">
+                <button className="crud-chat-composer__send" type="submit" disabled={uploading} aria-label="Send message">
                   <FiSend />
                 </button>
               </form>
             </>
           ) : (
-            <div className="chat-empty chat-empty--desktop">Choose an accepted friend to start chatting.</div>
+            <div className="crud-chat-empty crud-chat-empty--desktop">Choose an accepted friend to start chatting.</div>
           )}
         </section>
       </section>

@@ -1,8 +1,54 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { FiBell, FiTrash2 } from "react-icons/fi";
 import { useRealtime } from "../context/RealtimeContext";
 
 const SWIPE_DELETE_THRESHOLD = 72;
+const PANEL_WIDTH = 352;
+const PANEL_GAP_PX = 8;
+const PANEL_MAX_HEIGHT = 384;
+
+/** Shared anchor + bell roots so only one panel is portaled app-wide. */
+let panelAnchorEl = null;
+const bellRootElements = new Set();
+
+const setPanelAnchor = (element) => {
+  panelAnchorEl = element;
+};
+
+const registerBellRoot = (element) => {
+  if (element) bellRootElements.add(element);
+  return () => {
+    if (element) bellRootElements.delete(element);
+  };
+};
+
+const isInsideAnyBellRoot = (target) => {
+  for (const root of bellRootElements) {
+    if (root.contains(target)) return true;
+  }
+  return false;
+};
+
+const computePanelPosition = () => {
+  const btn = panelAnchorEl;
+  if (!btn) return null;
+  const rect = btn.getBoundingClientRect();
+  const width = Math.min(window.innerWidth * 0.92, PANEL_WIDTH);
+  const maxHeight = Math.min(window.innerHeight * 0.7, PANEL_MAX_HEIGHT);
+  const margin = PANEL_GAP_PX;
+
+  let left = rect.right - width;
+  left = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
+
+  let top = rect.bottom + margin;
+  if (top + maxHeight > window.innerHeight - margin) {
+    top = rect.top - margin - maxHeight;
+  }
+  top = Math.max(margin, top);
+
+  return { top, left, width, maxHeight };
+};
 
 const SwipeNotificationRow = ({ item, onDismiss, onOpen }) => {
   const startXRef = useRef(0);
@@ -29,13 +75,13 @@ const SwipeNotificationRow = ({ item, onDismiss, onOpen }) => {
   };
 
   return (
-    <div className="notification-bell__swipe-wrap">
-      <div className="notification-bell__swipe-delete" aria-hidden="true">
+    <div className="crud-chat-notification-bell__swipe-wrap">
+      <div className="crud-chat-notification-bell__swipe-delete" aria-hidden="true">
         <FiTrash2 />
       </div>
       <button
         type="button"
-        className={`notification-bell__item${item.read ? "" : " notification-bell__item--unread"}`}
+        className={`crud-chat-notification-bell__item${item.read ? "" : " crud-chat-notification-bell__item--unread"}`}
         style={{ transform: `translateX(${offset}px)` }}
         onClick={() => onOpen(item)}
         onTouchStart={onTouchStart}
@@ -43,7 +89,7 @@ const SwipeNotificationRow = ({ item, onDismiss, onOpen }) => {
         onTouchEnd={onTouchEnd}
         onTouchCancel={onTouchEnd}
       >
-        <span className="notification-bell__item-type">
+        <span className="crud-chat-notification-bell__item-type">
           {item.type === "friend_request" ? "Friend request" : "Message"}
         </span>
         <strong>
@@ -57,24 +103,41 @@ const SwipeNotificationRow = ({ item, onDismiss, onOpen }) => {
   );
 };
 
-const NotificationBell = () => {
+export const NotificationPanelHost = () => {
   const panelRef = useRef(null);
+  const [panelPosition, setPanelPosition] = useState(null);
   const {
     notifications,
     unreadNotificationCount,
-    badgeTotal,
     panelOpen,
-    openNotificationPanel,
     closeNotificationPanel,
-    markNotificationsRead,
     handleNotificationAction,
     dismissNotification,
   } = useRealtime();
 
+  const updatePanelPosition = useCallback(() => {
+    setPanelPosition(computePanelPosition());
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!panelOpen) {
+      setPanelPosition(null);
+      return undefined;
+    }
+    updatePanelPosition();
+    window.addEventListener("resize", updatePanelPosition);
+    window.addEventListener("scroll", updatePanelPosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePanelPosition);
+      window.removeEventListener("scroll", updatePanelPosition, true);
+    };
+  }, [panelOpen, updatePanelPosition]);
+
   useEffect(() => {
     if (!panelOpen) return undefined;
     const onPointerDown = (event) => {
-      if (panelRef.current?.contains(event.target)) return;
+      const target = event.target;
+      if (panelRef.current?.contains(target) || isInsideAnyBellRoot(target)) return;
       closeNotificationPanel();
     };
     document.addEventListener("mousedown", onPointerDown);
@@ -85,52 +148,85 @@ const NotificationBell = () => {
     };
   }, [panelOpen, closeNotificationPanel]);
 
+  if (!panelOpen || !panelPosition) return null;
+
+  return createPortal(
+    <div
+      ref={panelRef}
+      className="crud-chat-notification-bell__panel crud-chat-notification-bell__panel--fixed"
+      role="dialog"
+      aria-label="Notifications"
+      style={{
+        top: panelPosition.top,
+        left: panelPosition.left,
+        width: panelPosition.width,
+        maxHeight: panelPosition.maxHeight,
+      }}
+    >
+      <header className="crud-chat-notification-bell__header">
+        <strong>Notifications</strong>
+        {unreadNotificationCount > 0 && (
+          <span className="crud-chat-notification-bell__count">{unreadNotificationCount} new</span>
+        )}
+      </header>
+      <div className="crud-chat-notification-bell__list">
+        {notifications.length ? notifications.map((item) => (
+          <SwipeNotificationRow
+            key={item.id}
+            item={item}
+            onDismiss={dismissNotification}
+            onOpen={handleNotificationAction}
+          />
+        )) : (
+          <p className="crud-chat-notification-bell__empty">No notifications yet.</p>
+        )}
+      </div>
+    </div>,
+    document.body,
+  );
+};
+
+const NotificationBell = () => {
+  const rootRef = useRef(null);
+  const btnRef = useRef(null);
+  const {
+    badgeTotal,
+    panelOpen,
+    openNotificationPanel,
+    closeNotificationPanel,
+    markNotificationsRead,
+  } = useRealtime();
+
+  useEffect(() => {
+    const root = rootRef.current;
+    return registerBellRoot(root);
+  }, []);
+
   const togglePanel = () => {
     if (panelOpen) {
       closeNotificationPanel();
       return;
     }
+    setPanelAnchor(btnRef.current);
     openNotificationPanel();
     markNotificationsRead();
   };
 
   return (
-    <div className="notification-bell" ref={panelRef}>
+    <div className="crud-chat-notification-bell" ref={rootRef}>
       <button
+        ref={btnRef}
         type="button"
-        className="notification-bell__btn"
+        className="crud-chat-notification-bell__btn"
         onClick={togglePanel}
         aria-label="Notifications"
         aria-expanded={panelOpen}
       >
         <FiBell size={20} />
         {badgeTotal > 0 && (
-          <span className="notification-bell__dot" aria-hidden="true" />
+          <span className="crud-chat-notification-bell__dot" aria-hidden="true" />
         )}
       </button>
-
-      {panelOpen && (
-        <div className="notification-bell__panel" role="dialog" aria-label="Notifications">
-          <header className="notification-bell__header">
-            <strong>Notifications</strong>
-            {unreadNotificationCount > 0 && (
-              <span className="notification-bell__count">{unreadNotificationCount} new</span>
-            )}
-          </header>
-          <div className="notification-bell__list">
-            {notifications.length ? notifications.map((item) => (
-              <SwipeNotificationRow
-                key={item.id}
-                item={item}
-                onDismiss={dismissNotification}
-                onOpen={handleNotificationAction}
-              />
-            )) : (
-              <p className="notification-bell__empty">No notifications yet.</p>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 };

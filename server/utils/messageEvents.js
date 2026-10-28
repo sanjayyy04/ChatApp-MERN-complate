@@ -1,5 +1,6 @@
 const Message = require("../models/messageModel");
 const { areFriends } = require("./chat");
+const { queueUnreadMessageEmail } = require("../services/unreadEmailNotificationService");
 
 let ioRef = null;
 
@@ -29,12 +30,14 @@ const createTextMessage = async (senderId, receiverId, text) => {
     if (!(await areFriends(senderId, receiverId))) {
         throw new Error("You can only chat with accepted friends.");
     }
-    return Message.create({
+    const doc = await Message.create({
         sender: senderId,
         receiver: receiverId,
         text: text.trim(),
         messageType: "text",
     });
+    queueUnreadMessageEmail(String(receiverId), String(senderId)).catch(() => {});
+    return doc;
 };
 
 module.exports = { setMessageIo, broadcastMessage, broadcastMessageDeleted, createTextMessage };

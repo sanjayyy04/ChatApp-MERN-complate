@@ -1,21 +1,20 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
 import axios from "axios";
+import {
+  FiCamera,
+  FiLogOut,
+} from "react-icons/fi";
 import { UserContext } from "../context/UserContext";
-import { NavLink, useNavigate } from "react-router-dom";
 import { API_URL, userAvatarUrl } from "../api";
-import { connectSocket } from "../services/socket";
 import { toast } from "react-toastify";
-import { FiCamera, FiEdit2 } from "react-icons/fi";
 import MediaLightbox from "../components/MediaLightbox";
-import UsernameLink from "../components/UsernameLink";
-import { useProfileSheet } from "../context/ProfileSheetContext";
+import ProfileFriendsSection from "../components/ProfileFriendsSection";
+import { APP_DEFAULT_STATUS } from "../constants/app";
+import { useMobilePageHeader } from "../context/MobilePageHeaderContext";
 
 const Profile = () => {
   const { user, setUser, authLoading, logout } = useContext(UserContext);
-  const [stats, setStats] = useState({ followers: 0, following: 0 });
-  const [listTitle, setListTitle] = useState("");
-  const [people, setPeople] = useState([]);
-  const [listLoading, setListLoading] = useState(false);
+  const { setHeaderActions } = useMobilePageHeader();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
@@ -28,23 +27,8 @@ const Profile = () => {
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState("");
   const avatarInputRef = useRef(null);
-  const navigate = useNavigate();
   const [lightbox, setLightbox] = useState(null);
-  const { openProfile } = useProfileSheet();
-
-  const loadStats = async () =>
-    setStats(
-      (await axios.get(`${API_URL}/api/social/stats`, { withCredentials: true }))
-        .data.data,
-    );
-
-  useEffect(() => {
-    if (!user) return;
-    loadStats().catch(() => {});
-    const socket = connectSocket();
-    socket.on("social:updated", loadStats);
-    return () => socket.off("social:updated", loadStats);
-  }, [user]);
+  const [notifSaving, setNotifSaving] = useState(false);
 
   useEffect(() => {
     if (!user || editing) return;
@@ -65,21 +49,27 @@ const Profile = () => {
     }
   }, [user, editing]);
 
-  const openPeopleList = async (type) => {
-    setListTitle(type);
-    setListLoading(true);
-    try {
-      setPeople(
-        (
-          await axios.get(`${API_URL}/api/social/${type.toLowerCase()}`, {
-            withCredentials: true,
-          })
-        ).data.data,
-      );
-    } finally {
-      setListLoading(false);
+  useEffect(() => {
+    document.body.classList.toggle("crud-chat-mobile-profile-edit", editing);
+    return () => document.body.classList.remove("crud-chat-mobile-profile-edit");
+  }, [editing]);
+
+  useEffect(() => {
+    if (editing) {
+      setHeaderActions(null);
+      return undefined;
     }
-  };
+    setHeaderActions(
+      <button
+        type="button"
+        className="crud-chat-shell__header-text-btn"
+        onClick={() => setEditing(true)}
+      >
+        Edit
+      </button>,
+    );
+    return () => setHeaderActions(null);
+  }, [editing, setHeaderActions]);
 
   const onAvatarChange = (event) => {
     const file = event.target.files?.[0];
@@ -88,8 +78,14 @@ const Profile = () => {
     setAvatarPreview(URL.createObjectURL(file));
   };
 
+  const cancelEdit = () => {
+    setEditing(false);
+    setAvatarFile(null);
+    if (user) setAvatarPreview(userAvatarUrl(user));
+  };
+
   const saveProfile = async (event) => {
-    event.preventDefault();
+    event?.preventDefault();
     setSaving(true);
     try {
       const payload = new FormData();
@@ -117,224 +113,313 @@ const Profile = () => {
     }
   };
 
-  if (authLoading) return <div className="container mt-5">Loading profile...</div>;
-  if (!user)
+  const updateNotificationPref = async (key, value) => {
+    setNotifSaving(true);
+    try {
+      const response = await axios.patch(
+        `${API_URL}/api/profile/notifications`,
+        { notificationPreferences: { [key]: value } },
+        { withCredentials: true },
+      );
+      setUser(response.data.data);
+      toast.success("Notification settings saved.");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Could not save settings.");
+    } finally {
+      setNotifSaving(false);
+    }
+  };
+
+  if (authLoading) {
     return (
-      <div className="container mt-5">
-        Please <NavLink to="/reg">login</NavLink> to view your profile.
+      <div className="crud-chat-profile-loading" role="status">
+        Loading profile…
       </div>
     );
+  }
+
+  if (!user) {
+    return (
+      <div className="crud-chat-profile-loading">
+        Please log in to view your profile.
+      </div>
+    );
+  }
+
+  const statusLine = user.bio?.trim() || APP_DEFAULT_STATUS;
+  const prefs = user.notificationPreferences || {};
 
   return (
-    <div className="profile-page">
-      <MediaLightbox
-        open={Boolean(lightbox)}
-        onClose={() => setLightbox(null)}
-        src={lightbox?.src}
-        alt={lightbox?.alt}
-        mode="image"
-      />
-      <section className="profile-panel profile-panel--ig" aria-label="Your profile">
-        <header className="profile-ig-topbar">
-          <span className="profile-ig-topbar__handle">@{user.userName}</span>
-        </header>
-
-        <div className="profile-panel__body profile-panel__body--ig">
-          <div className="profile-ig-hero">
-            <div className="profile-avatar-wrap">
-              <button
-                type="button"
-                className="profile-panel__avatar-btn"
-                onClick={() => !editing && setLightbox({ src: avatarPreview, alt: `${user.userName} profile` })}
-                aria-label={editing ? undefined : "View profile photo"}
-                disabled={editing}
-              >
-                <img
-                  className="profile-panel__avatar profile-panel__avatar--ig"
-                  src={avatarPreview}
-                  alt={`${user.userName} profile`}
-                />
-              </button>
-              {editing && (
-                <button
-                  type="button"
-                  className="profile-media-edit profile-media-edit--avatar"
-                  onClick={() => avatarInputRef.current?.click()}
-                  aria-label="Change profile photo"
-                >
-                  <FiCamera />
-                </button>
-              )}
-            </div>
-
-            <div className="profile-ig-stats" aria-label="Profile activity">
-              <div className="profile-ig-stat profile-ig-stat--static">
-                <strong>0</strong>
-                <span>posts</span>
-              </div>
-              <button type="button" className="profile-ig-stat" onClick={() => openPeopleList("Followers")}>
-                <strong>{stats.followers}</strong>
-                <span>followers</span>
-              </button>
-              <button type="button" className="profile-ig-stat" onClick={() => openPeopleList("Following")}>
-                <strong>{stats.following}</strong>
-                <span>following</span>
-              </button>
+    <div className="crud-chat-page-wrap">
+      <div className="crud-chat-pane-layout crud-chat-pane-layout--settings">
+        <nav className="crud-chat-settings-nav" aria-label="Settings">
+          <header className="crud-chat-pane-header">
+            <h2 className="crud-chat-pane-header__title">Settings</h2>
+          </header>
+          <div className="crud-chat-settings-nav__profile" aria-hidden={editing}>
+            <img src={avatarPreview} alt="" />
+            <div>
+              <strong>{user.name}</strong>
+              <span>{statusLine}</span>
             </div>
           </div>
+          <button type="button" className="crud-chat-settings-nav__item crud-chat-settings-nav__item--active">
+            Profile
+          </button>
+          <button
+            type="button"
+            className="crud-chat-settings-nav__item crud-chat-settings-nav__item--danger"
+            onClick={() => logout?.()}
+          >
+            Log out
+          </button>
+        </nav>
 
-          {editing ? (
-            <form className="profile-edit-form profile-edit-form--ig" onSubmit={saveProfile}>
-              <input
-                ref={avatarInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/gif"
-                hidden
-                onChange={onAvatarChange}
-              />
-              <label>
-                Full name
-                <input
-                  value={form.name}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, name: event.target.value }))
-                  }
-                  required
-                />
-              </label>
-              <label>
-                Username
-                <input
-                  value={form.userName}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      userName: event.target.value,
-                    }))
-                  }
-                  required
-                />
-              </label>
-              <label>
-                Email
-                <input
-                  type="email"
-                  value={form.email}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, email: event.target.value }))
-                  }
-                  required
-                />
-              </label>
-              <label>
-                Phone
-                <input
-                  value={form.phone}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, phone: event.target.value }))
-                  }
-                />
-              </label>
-              <label className="profile-edit-form__bio">
-                Bio
-                <textarea
-                  maxLength={280}
-                  rows={3}
-                  value={form.bio}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, bio: event.target.value }))
-                  }
-                  placeholder="Write a short bio"
-                />
-              </label>
-              <div className="profile-edit-actions">
-                <button type="submit" className="profile-ig-btn profile-ig-btn--primary" disabled={saving}>
-                  {saving ? "Saving..." : "Save profile"}
-                </button>
-                <button
-                  type="button"
-                  className="profile-ig-btn"
-                  onClick={() => setEditing(false)}
-                >
+        <div className="crud-chat-pane-layout__detail crud-chat-profile-page">
+          <MediaLightbox
+            open={Boolean(lightbox)}
+            onClose={() => setLightbox(null)}
+            src={lightbox?.src}
+            alt={lightbox?.alt}
+            mode="image"
+          />
+
+          <header className="crud-chat-profile-desktop-bar">
+            <h1>{editing ? "Edit profile" : "Profile"}</h1>
+            {editing ? (
+              <div className="crud-chat-profile-desktop-bar__actions">
+                <button type="button" className="crud-chat-profile-toolbar__text" onClick={cancelEdit} disabled={saving}>
                   Cancel
                 </button>
-              </div>
-            </form>
-          ) : (
-            <>
-              <div className="profile-ig-actions">
                 <button
                   type="button"
-                  className="profile-ig-btn profile-ig-btn--primary"
-                  onClick={() => setEditing(true)}
+                  className="crud-chat-profile-toolbar__text crud-chat-profile-toolbar__text--accent"
+                  onClick={saveProfile}
+                  disabled={saving}
                 >
-                  <FiEdit2 aria-hidden="true" />
-                  Edit profile
+                  {saving ? "Saving…" : "Save"}
                 </button>
               </div>
-
-              <h1 className="profile-ig-name">{user.name}</h1>
-              <p className="profile-bio profile-bio--ig">
-                {user.bio || "Add a bio to tell people more about you."}
-              </p>
-
-              <button type="button" className="profile-panel__logout profile-panel__logout--ig" onClick={logout}>
-                Log out
-              </button>
-            </>
-          )}
-        </div>
-      </section>
-      {listTitle && (
-        <div
-          className="people-modal"
-          role="dialog"
-          aria-modal="true"
-          aria-label={listTitle}
-        >
-          <div className="people-modal__panel">
-            <button
-              className="people-modal__close"
-              onClick={() => setListTitle("")}
-              aria-label="Close"
-            >
-              ×
-            </button>
-            <h2>{listTitle}</h2>
-            {listLoading ? (
-              <p>Loading...</p>
-            ) : people.length ? (
-              people.map((person) => (
-                <div className="people-modal__person" key={person._id}>
-                  <button
-                    type="button"
-                    className="people-modal__person-avatar"
-                    onClick={() => openProfile(person)}
-                    aria-label={`View ${person.userName}'s profile`}
-                  >
-                    <img src={userAvatarUrl(person)} alt="" />
-                  </button>
-                  <div className="people-modal__person-meta">
-                    <strong>
-                      <UsernameLink person={person} className="username-link--strong" />
-                    </strong>
-                    <span>{person.name}</span>
-                  </div>
-                  <button
-                    type="button"
-                    className="people-modal__person-chat"
-                    onClick={() => navigate("/chat", { state: { selectedFriend: person } })}
-                  >
-                    Message
-                  </button>
-                </div>
-              ))
             ) : (
-              <p>No {listTitle.toLowerCase()} yet.</p>
+              <button
+                type="button"
+                className="crud-chat-profile-desktop-bar__edit"
+                onClick={() => setEditing(true)}
+              >
+                Edit profile
+              </button>
             )}
+          </header>
+
+          <header
+            className={`crud-chat-profile-toolbar${editing ? " crud-chat-profile-toolbar--edit-mode" : ""}`}
+          >
+            {editing ? (
+              <>
+                <button type="button" className="crud-chat-profile-toolbar__text" onClick={cancelEdit} disabled={saving}>
+                  Cancel
+                </button>
+                <h1 className="crud-chat-profile-toolbar__title">Edit profile</h1>
+                <button
+                  type="button"
+                  className="crud-chat-profile-toolbar__text crud-chat-profile-toolbar__text--accent"
+                  onClick={saveProfile}
+                  disabled={saving}
+                >
+                  {saving ? "Saving…" : "Done"}
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="crud-chat-profile-toolbar__spacer" aria-hidden="true" />
+                <h1 className="crud-chat-profile-toolbar__title">Profile</h1>
+                <button
+                  type="button"
+                  className="crud-chat-profile-toolbar__text crud-chat-profile-toolbar__text--accent crud-chat-profile-toolbar__text--desktop-only"
+                  onClick={() => setEditing(true)}
+                >
+                  Edit
+                </button>
+              </>
+            )}
+          </header>
+
+          <div className="crud-chat-profile-scroll">
+          <form className="crud-chat-profile" onSubmit={saveProfile}>
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              hidden
+              onChange={onAvatarChange}
+            />
+
+            <div className="crud-chat-profile-hero-wrap">
+              <button
+                type="button"
+                className="crud-chat-profile-hero"
+                onClick={() => {
+                  if (editing) avatarInputRef.current?.click();
+                  else setLightbox({ src: avatarPreview, alt: `${user.userName} profile` });
+                }}
+              >
+                <span className="crud-chat-profile-hero__avatar-wrap">
+                  <img src={avatarPreview} alt="" className="crud-chat-profile-hero__avatar" />
+                  {editing ? (
+                    <span className="crud-chat-profile-hero__camera" aria-hidden="true">
+                      <FiCamera />
+                    </span>
+                  ) : null}
+                </span>
+                <span className="crud-chat-profile-hero__text">
+                  <strong>{editing ? form.name || user.name : user.name}</strong>
+                  <span className="crud-chat-profile-hero__status">
+                    {editing ? form.bio || "Add a few words about yourself" : statusLine}
+                  </span>
+                </span>
+              </button>
+            </div>
+
+            {editing ? (
+              <>
+                <p className="crud-chat-profile-section-label">Your name and about</p>
+                <section className="crud-chat-profile-section">
+                  <label className="crud-chat-profile-field">
+                    <span>Name</span>
+                    <input
+                      value={form.name}
+                      onChange={(e) => setForm((c) => ({ ...c, name: e.target.value }))}
+                      required
+                      autoComplete="name"
+                    />
+                  </label>
+                  <label className="crud-chat-profile-field crud-chat-profile-field--about">
+                    <span>About</span>
+                    <textarea
+                      maxLength={280}
+                      rows={3}
+                      value={form.bio}
+                      onChange={(e) => setForm((c) => ({ ...c, bio: e.target.value }))}
+                      placeholder="About"
+                    />
+                  </label>
+                </section>
+
+                <p className="crud-chat-profile-section-label">Account</p>
+                <section className="crud-chat-profile-section">
+                  <label className="crud-chat-profile-field">
+                    <span>Username</span>
+                    <input
+                      value={form.userName}
+                      onChange={(e) => setForm((c) => ({ ...c, userName: e.target.value }))}
+                      required
+                      autoComplete="username"
+                    />
+                  </label>
+                  <label className="crud-chat-profile-field">
+                    <span>Email</span>
+                    <input
+                      type="email"
+                      value={form.email}
+                      onChange={(e) => setForm((c) => ({ ...c, email: e.target.value }))}
+                      required
+                      autoComplete="email"
+                    />
+                  </label>
+                  <label className="crud-chat-profile-field">
+                    <span>Phone</span>
+                    <input
+                      value={form.phone}
+                      onChange={(e) => setForm((c) => ({ ...c, phone: e.target.value }))}
+                      autoComplete="tel"
+                    />
+                  </label>
+                </section>
+              </>
+            ) : (
+              <>
+                <p className="crud-chat-profile-section-label">Profile</p>
+                <section className="crud-chat-profile-section">
+                  <div className="crud-chat-profile-row">
+                    <span className="crud-chat-profile-row__label">Name</span>
+                    <span className="crud-chat-profile-row__value">{user.name}</span>
+                  </div>
+                  <div className="crud-chat-profile-row crud-chat-profile-row--multiline">
+                    <span className="crud-chat-profile-row__label">About</span>
+                    <span className="crud-chat-profile-row__value">{statusLine}</span>
+                  </div>
+                </section>
+
+                <p className="crud-chat-profile-section-label">Account</p>
+                <section className="crud-chat-profile-section">
+                  <div className="crud-chat-profile-row">
+                    <span className="crud-chat-profile-row__label">Phone</span>
+                    <span className="crud-chat-profile-row__value">{user.phone || "—"}</span>
+                  </div>
+                  <div className="crud-chat-profile-row">
+                    <span className="crud-chat-profile-row__label">Username</span>
+                    <span className="crud-chat-profile-row__value">@{user.userName}</span>
+                  </div>
+                  <div className="crud-chat-profile-row crud-chat-profile-row--multiline">
+                    <span className="crud-chat-profile-row__label">Email</span>
+                    <span className="crud-chat-profile-row__value">{user.email}</span>
+                  </div>
+                </section>
+
+                <p className="crud-chat-profile-section-label">Notifications</p>
+                <section className="crud-chat-profile-section crud-chat-profile-section--notifications">
+                  <label className="crud-chat-profile-toggle-row">
+                    <span>
+                      <strong>Login alerts</strong>
+                      <small>Email when someone signs in to your account</small>
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={prefs.emailLoginAlerts !== false}
+                      disabled={notifSaving}
+                      onChange={(e) => updateNotificationPref("emailLoginAlerts", e.target.checked)}
+                    />
+                  </label>
+                  <label className="crud-chat-profile-toggle-row">
+                    <span>
+                      <strong>Security alerts</strong>
+                      <small>Email for password or account changes</small>
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={prefs.emailSecurityAlerts !== false}
+                      disabled={notifSaving}
+                      onChange={(e) => updateNotificationPref("emailSecurityAlerts", e.target.checked)}
+                    />
+                  </label>
+                  <label className="crud-chat-profile-toggle-row">
+                    <span>
+                      <strong>Unread messages (offline)</strong>
+                      <small>Batched email when you are away — no message content</small>
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={prefs.emailUnreadMessages === true}
+                      disabled={notifSaving}
+                      onChange={(e) => updateNotificationPref("emailUnreadMessages", e.target.checked)}
+                    />
+                  </label>
+                </section>
+
+                <ProfileFriendsSection />
+
+                <section className="crud-chat-profile-section crud-chat-profile-section--mobile-logout">
+                  <button type="button" className="crud-chat-profile-link crud-chat-profile-link--danger" onClick={logout}>
+                    <FiLogOut aria-hidden="true" />
+                    <span className="crud-chat-profile-link__label">Log out</span>
+                  </button>
+                </section>
+              </>
+            )}
+          </form>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };

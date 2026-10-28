@@ -13,7 +13,6 @@ const authMiddleware = async (req, res, next) => {
         }
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
         const currentUser = await User.findById(decoded.id).select("-password");
 
         if (!currentUser) {
@@ -22,16 +21,35 @@ const authMiddleware = async (req, res, next) => {
             });
         }
 
-        req.user = currentUser;
-        next();
+        const tokenType = decoded.typ || "session";
 
+        if (tokenType === "session") {
+            if (
+                decoded.sv !== undefined
+                && Number(decoded.sv) !== Number(currentUser.sessionVersion || 0)
+            ) {
+                return res.status(401).json({ message: "Session revoked. Please login again." });
+            }
+        }
+
+        req.user = currentUser;
+        req.tokenType = tokenType;
+        req.tokenPayload = decoded;
+        next();
     } catch (error) {
-        console.log("error while Authenticating user", error);
         return res.status(401).json({
             message: "Invalid or expired token.",
-        })
+        });
     }
+};
 
-}
+/** Only full authenticated session tokens. */
+const requireSession = (req, res, next) => {
+    if (req.tokenType !== "session") {
+        return res.status(403).json({ message: "Please sign in again." });
+    }
+    next();
+};
 
 module.exports = authMiddleware;
+module.exports.requireSession = requireSession;

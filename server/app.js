@@ -5,6 +5,7 @@ const cookieParser = require("cookie-parser");
 const { urlencoded } = require("express");
 
 const router = require("./routes/user.routes.js");
+const authRouter = require("./routes/auth.routes.js");
 const { getClientOrigins } = require("./config/cors.js");
 
 const app = express();
@@ -31,6 +32,7 @@ app.use(
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Routes
+app.use("/api/auth", authRouter);
 app.use("/api", router);
 
 module.exports = app;

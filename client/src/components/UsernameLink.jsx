@@ -15,7 +15,7 @@ const UsernameLink = ({ person, className = "", showAt = true, onClick }) => {
   return (
     <button
       type="button"
-      className={`username-link${className ? ` ${className}` : ""}`}
+      className={`crud-chat-username-link${className ? ` ${className}` : ""}`}
       onClick={handleClick}
     >
       {showAt ? `@${person.userName}` : person.userName}

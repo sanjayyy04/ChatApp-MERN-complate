@@ -4,6 +4,7 @@ const mongoose = require("mongoose");
 const Message = require("../models/messageModel");
 const { areFriends } = require("../utils/chat");
 const { broadcastMessage, broadcastMessageDeleted } = require("../utils/messageEvents");
+const { queueUnreadMessageEmail } = require("../services/unreadEmailNotificationService");
 
 const removeChatAttachmentFile = (attachmentUrl) => {
     if (!attachmentUrl?.startsWith("/uploads/chat/")) return;
@@ -55,6 +56,7 @@ const sendChatAttachment = async (req, res) => {
         });
 
         broadcastMessage(message);
+        queueUnreadMessageEmail(String(otherUserId), String(req.user._id)).catch(() => {});
         return res.status(201).json({ message: "Attachment sent.", data: message });
     } catch (error) {
         return res.status(500).json({

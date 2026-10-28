@@ -3,7 +3,7 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { API_URL } from "../api";
 import { connectSocket, disconnectSocket } from "../services/socket";
-import { clearAuthToken } from "../services/authToken";
+import { clearAuthToken, getAuthToken } from "../services/authToken";
 
 export const UserContext = createContext();
 
@@ -14,12 +14,21 @@ const UserProvider = ({ children }) => {
 
   const navigate = useNavigate();
 
-  // Check whether user is already logged in
   useEffect(() => {
     const loadUserFromCookie = async () => {
+      if (!getAuthToken()) {
+        setUser(null);
+        setAuthLoading(false);
+        return;
+      }
+
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 12000);
+
       try {
         const response = await axios.get(`${API_URL}/api/profile`, {
           withCredentials: true,
+          signal: controller.signal,
         });
 
         setUser(response.data.data);
@@ -27,6 +36,7 @@ const UserProvider = ({ children }) => {
         clearAuthToken();
         setUser(null);
       } finally {
+        window.clearTimeout(timeoutId);
         setAuthLoading(false);
       }
     };
@@ -40,41 +50,19 @@ const UserProvider = ({ children }) => {
     return () => window.removeEventListener("pagehide", onPageHide);
   }, []);
 
-  // Connect Socket.IO when authenticated user exists
   useEffect(() => {
-    // Still checking authentication
     if (authLoading) {
       return;
     }
 
-    // User is not logged in
     if (!user) {
       disconnectSocket();
       return;
     }
 
-    // User is logged in
-    const socket = connectSocket();
-
-    const handleConnect = () => {
-      console.log("User connected to Socket.IO:", socket.id);
-    };
-
-    const handleDisconnect = () => {
-      console.log("User disconnected from Socket.IO");
-    };
-
-    socket.on("connect", handleConnect);
-    socket.on("disconnect", handleDisconnect);
-
-    // Cleanup
-    return () => {
-      socket.off("connect", handleConnect);
-      socket.off("disconnect", handleDisconnect);
-    };
+    connectSocket();
   }, [user, authLoading]);
 
-  // Logout
   const logout = async () => {
     try {
       await axios.post(
@@ -89,8 +77,7 @@ const UserProvider = ({ children }) => {
       clearAuthToken();
       setUser(null);
 
-      // Redirect
-      navigate("/reg");
+      navigate("/login");
     } catch (error) {
       console.error("Logout failed:", error);
     }

@@ -1,7 +1,7 @@
 const PresenceStatus = ({ online, typing, className = "" }) => {
   if (typing) {
     return (
-      <span className={`presence-status presence-status--typing${className ? ` ${className}` : ""}`}>
+      <span className={`crud-chat-presence crud-chat-presence--typing${className ? ` ${className}` : ""}`}>
         typing…
       </span>
     );
@@ -9,8 +9,8 @@ const PresenceStatus = ({ online, typing, className = "" }) => {
 
   if (online) {
     return (
-      <span className={`presence-status presence-status--online${className ? ` ${className}` : ""}`}>
-        <span className="presence-dot" aria-hidden="true" />
+      <span className={`crud-chat-presence crud-chat-presence--online${className ? ` ${className}` : ""}`}>
+        <span className="crud-chat-presence-dot" aria-hidden="true" />
         online
       </span>
     );

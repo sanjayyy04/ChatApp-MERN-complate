@@ -1,0 +1,412 @@
+/* Cinematic ambient + motion — black / gold theme, respects reduced motion */
+
+:root {
+  --crud-motion-fast: 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  --crud-motion-medium: 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+  --crud-motion-slow: 8s ease-in-out infinite;
+  --crud-glow-accent: 0 0 32px rgba(255, 214, 10, 0.22);
+  --crud-glow-accent-strong: 0 0 48px rgba(255, 214, 10, 0.35), 0 0 96px rgba(255, 214, 10, 0.12);
+  --crud-edge-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+/* —— Background atmosphere —— */
+.crud-chat-ambient {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.crud-chat-ambient__orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.55;
+  will-change: transform;
+}
+
+.crud-chat-ambient__orb--gold {
+  top: -12%;
+  right: -8%;
+  width: min(55vw, 28rem);
+  height: min(55vw, 28rem);
+  background: radial-gradient(circle, rgba(255, 214, 10, 0.35) 0%, transparent 70%);
+  animation: crud-chat-orb-drift-a var(--crud-motion-slow);
+}
+
+.crud-chat-ambient__orb--warm {
+  bottom: 5%;
+  left: -15%;
+  width: min(70vw, 32rem);
+  height: min(70vw, 32rem);
+  background: radial-gradient(circle, rgba(255, 180, 0, 0.18) 0%, transparent 68%);
+  animation: crud-chat-orb-drift-b 11s ease-in-out infinite;
+}
+
+.crud-chat-ambient__orb--deep {
+  top: 40%;
+  left: 35%;
+  width: min(50vw, 22rem);
+  height: min(50vw, 22rem);
+  background: radial-gradient(circle, rgba(32, 44, 51, 0.85) 0%, transparent 72%);
+  animation: crud-chat-orb-drift-c 14s ease-in-out infinite;
+}
+
+.crud-chat-ambient__mesh {
+  position: absolute;
+  inset: 0;
+  opacity: 0.35;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 85% 70% at 50% 40%, black 20%, transparent 75%);
+}
+
+.crud-chat-ambient__grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.045;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes crud-chat-orb-drift-a {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(-4%, 6%) scale(1.08);
+  }
+}
+
+@keyframes crud-chat-orb-drift-b {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(8%, -5%);
+  }
+}
+
+@keyframes crud-chat-orb-drift-c {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(-6%, -4%) scale(1.05);
+  }
+}
+
+@keyframes crud-chat-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes crud-chat-tab-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 12px rgba(255, 214, 10, 0.45);
+  }
+  50% {
+    opacity: 0.85;
+    box-shadow: 0 0 20px rgba(255, 214, 10, 0.65);
+  }
+}
+
+@keyframes crud-chat-brand-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 rgba(255, 214, 10, 0), 0 0 24px rgba(255, 214, 10, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 1px rgba(255, 214, 10, 0.35), 0 0 32px rgba(255, 214, 10, 0.35);
+  }
+}
+
+@keyframes crud-chat-shimmer {
+  0% {
+    background-position: -120% 0;
+  }
+  100% {
+    background-position: 220% 0;
+  }
+}
+
+/* —— Page enter —— */
+.crud-chat-page-wrap,
+.crud-chat-root--auth .crud-chat-auth {
+  animation: crud-chat-rise-in var(--crud-motion-medium) both;
+}
+
+/* —— Shell & cards (desktop) —— */
+@media (min-width: 900px) {
+  .crud-chat-rail,
+  .crud-chat-sidebar,
+  .crud-chat-panel,
+  .crud-chat-pane-layout__list,
+  .crud-chat-pane-layout__detail,
+  .crud-chat-settings-nav {
+    box-shadow:
+      var(--glass-shadow),
+      var(--crud-edge-highlight),
+      0 0 0 1px rgba(255, 214, 10, 0.06);
+    transition: box-shadow var(--crud-motion-fast), transform var(--crud-motion-fast);
+  }
+
+  .crud-chat-rail__brand-mark {
+    animation: crud-chat-brand-glow 4s ease-in-out infinite;
+  }
+}
+
+/* —— Rail & tabs: gold active states —— */
+@media (min-width: 900px) {
+  .crud-chat-rail__btn--active {
+    color: var(--color-accent) !important;
+    background: rgba(255, 214, 10, 0.12) !important;
+    box-shadow: var(--crud-glow-accent);
+  }
+
+  .crud-chat-rail__badge {
+    color: #111 !important;
+    background: var(--color-accent) !important;
+    box-shadow: 0 0 12px rgba(255, 214, 10, 0.5);
+  }
+
+  .crud-chat-rail__avatar-btn--active {
+    border-color: var(--color-accent) !important;
+    box-shadow: 0 0 16px rgba(255, 214, 10, 0.35);
+  }
+}
+
+.crud-chat-tabs__item {
+  position: relative;
+  transition: color var(--crud-motion-fast), transform var(--crud-motion-fast);
+}
+
+.crud-chat-tabs__item--active::after {
+  content: "";
+  position: absolute;
+  bottom: 0.2rem;
+  left: 50%;
+  width: 1.6rem;
+  height: 3px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, transparent, var(--color-accent), transparent);
+  transform: translateX(-50%);
+  animation: crud-chat-tab-pulse 2.8s ease-in-out infinite;
+}
+
+.crud-chat-tabs__item:active {
+  transform: scale(0.96);
+}
+
+.crud-chat-shell__tabs {
+  background: linear-gradient(180deg, rgba(32, 44, 51, 0.92) 0%, rgba(17, 27, 33, 0.98) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* —— Chat list —— */
+.crud-chat-contact {
+  transition:
+    background var(--crud-motion-fast),
+    transform var(--crud-motion-fast),
+    box-shadow var(--crud-motion-fast);
+}
+
+.crud-chat-contact:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.crud-chat-contact--active {
+  background: rgba(255, 214, 10, 0.1) !important;
+  box-shadow: inset 3px 0 0 var(--color-accent);
+}
+
+.crud-chat-sidebar__search {
+  transition: box-shadow var(--crud-motion-fast), background var(--crud-motion-fast);
+}
+
+.crud-chat-sidebar__search:focus-within {
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 0 1px rgba(255, 214, 10, 0.25), var(--crud-glow-accent);
+}
+
+/* —— Messages —— */
+.crud-chat-messages {
+  background-color: #0a1014;
+  background-image:
+    radial-gradient(ellipse 90% 60% at 50% 0%, rgba(255, 214, 10, 0.04) 0%, transparent 55%),
+    radial-gradient(circle at 20% 20%, rgba(32, 44, 51, 0.35) 0%, transparent 45%),
+    radial-gradient(circle at 80% 70%, rgba(17, 27, 33, 0.5) 0%, transparent 40%);
+}
+
+.crud-chat-message--sent {
+  box-shadow:
+    0 2px 12px rgba(255, 214, 10, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.crud-chat-message--received {
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.crud-chat-message--sent:hover,
+.crud-chat-message--received:hover {
+  transform: translateY(-1px);
+}
+
+.crud-chat-date-divider span {
+  border: 1px solid rgba(255, 214, 10, 0.12);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25), var(--crud-glow-accent);
+}
+
+/* —— Composer & primary actions —— */
+.crud-chat-composer button[type="submit"],
+.crud-chat-auth-form__submit,
+.crud-chat-group-list-empty__cta,
+.crud-chat-group-list__new-btn {
+  position: relative;
+  overflow: hidden;
+  transition: transform var(--crud-motion-fast), box-shadow var(--crud-motion-fast);
+}
+
+.crud-chat-composer button[type="submit"]:hover,
+.crud-chat-auth-form__submit:hover {
+  box-shadow: var(--crud-glow-accent-strong);
+  transform: translateY(-1px);
+}
+
+.crud-chat-auth-form {
+  box-shadow:
+    var(--glass-shadow),
+    var(--crud-edge-highlight),
+    0 0 48px rgba(255, 214, 10, 0.08);
+}
+
+.crud-chat-auth-form__submit::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 65%
+  );
+  background-size: 200% 100%;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.crud-chat-auth-form__submit:hover::after {
+  opacity: 1;
+  animation: crud-chat-shimmer 1.2s ease-in-out;
+}
+
+/* —— Notifications panel —— */
+.crud-chat-notification-bell__panel {
+  box-shadow:
+    var(--glass-shadow),
+    var(--crud-glow-accent),
+    0 0 0 1px rgba(255, 214, 10, 0.12);
+}
+
+.crud-chat-notification-bell__btn:hover {
+  box-shadow: var(--crud-glow-accent);
+}
+
+/* —— Toast theme —— */
+.crud-chat-toast.Toastify__toast {
+  border: 1px solid rgba(255, 214, 10, 0.2);
+  border-radius: var(--radius-md);
+  background: rgba(22, 22, 22, 0.92);
+  color: var(--color-ink);
+  backdrop-filter: blur(16px);
+  box-shadow: var(--glass-shadow), var(--crud-glow-accent);
+}
+
+.crud-chat-toast.Toastify__toast--success {
+  border-color: rgba(255, 214, 10, 0.45);
+}
+
+.crud-chat-toast .Toastify__progress-bar {
+  background: linear-gradient(90deg, var(--color-accent-dim), var(--color-accent));
+}
+
+/* —— Online presence pulse —— */
+.crud-chat-contact__online::after,
+.crud-chat-presence-dot::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  animation: crud-chat-presence-ring 2s ease-out infinite;
+  pointer-events: none;
+}
+
+.crud-chat-presence-dot {
+  position: relative;
+}
+
+.crud-chat-contact__online {
+  position: absolute;
+}
+
+@keyframes crud-chat-presence-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
+/* —— Profile hero —— */
+.crud-chat-profile-hero__avatar-wrap {
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.45),
+    0 0 0 2px rgba(255, 214, 10, 0.25),
+    var(--crud-glow-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .crud-chat-ambient__orb,
+  .crud-chat-rail__brand-mark,
+  .crud-chat-tabs__item--active::after,
+  .crud-chat-presence-dot::after,
+  .crud-chat-contact__online::after {
+    animation: none !important;
+  }
+
+  .crud-chat-page-wrap,
+  .crud-chat-root--auth .crud-chat-auth {
+    animation: none;
+  }
+
+  .crud-chat-message--sent:hover,
+  .crud-chat-message--received:hover,
+  .crud-chat-composer button[type="submit"]:hover,
+  .crud-chat-auth-form__submit:hover {
+    transform: none;
+  }
+}

@@ -141,11 +141,11 @@ const UserProfileSheet = ({
 
   const openChat = () => {
     onClose();
-    navigate("/chat", { state: { selectedFriend: person } });
+    navigate("/chats", { state: { selectedFriend: person } });
   };
 
   return (
-    <div className="user-profile-sheet" role="dialog" aria-modal="true" aria-label={`${person.userName} profile`}>
+    <div className="crud-chat-user-sheet" role="dialog" aria-modal="true" aria-label={`${person.userName} profile`}>
       <MediaLightbox
         open={Boolean(lightbox)}
         onClose={() => setLightbox(null)}
@@ -154,55 +154,55 @@ const UserProfileSheet = ({
         mode="image"
       />
 
-      <header className="user-profile-sheet__topbar">
-        <button type="button" className="user-profile-sheet__back" onClick={onClose} aria-label="Close profile">
+      <header className="crud-chat-user-sheet__topbar">
+        <button type="button" className="crud-chat-user-sheet__back" onClick={onClose} aria-label="Close profile">
           <FiArrowLeft size={22} />
         </button>
-        <span className="user-profile-sheet__handle">@{person.userName}</span>
+        <span className="crud-chat-user-sheet__handle">@{person.userName}</span>
       </header>
 
-      <div className="user-profile-sheet__scroll">
+      <div className="crud-chat-user-sheet__scroll">
         {loading && !profile ? (
-          <p className="user-profile-sheet__loading">Loading profile…</p>
+          <p className="crud-chat-user-sheet__loading">Loading profile…</p>
         ) : (
-          <article className="user-profile-sheet__card profile-panel profile-panel--ig">
-            <div className="profile-panel__body profile-panel__body--ig user-profile-sheet__body">
-              <div className="profile-ig-hero">
+          <article className="crud-chat-user-sheet__card crud-chat-profile-panel crud-chat-profile-panel--ig">
+            <div className="crud-chat-profile-panel__body crud-chat-profile-panel__body--ig crud-chat-user-sheet__body">
+              <div className="crud-chat-profile-ig-hero">
                 <button
                   type="button"
-                  className="profile-panel__avatar-btn"
+                  className="crud-chat-profile-panel__avatar-btn"
                   onClick={() => setLightbox({ src: avatarSrc, alt: `${person.userName} profile` })}
                   aria-label="View profile photo"
                 >
-                  <img className="profile-panel__avatar profile-panel__avatar--ig" src={avatarSrc} alt="" />
+                  <img className="crud-chat-profile-panel__avatar crud-chat-profile-panel__avatar--ig" src={avatarSrc} alt="" />
                 </button>
 
-                <div className="profile-ig-stats" aria-label="Profile stats">
-                  <div className="profile-ig-stat profile-ig-stat--static">
+                <div className="crud-chat-profile-ig-stats" aria-label="Profile stats">
+                  <div className="crud-chat-profile-ig-stat crud-chat-profile-ig-stat--static">
                     <strong>0</strong>
                     <span>posts</span>
                   </div>
-                  <div className="profile-ig-stat profile-ig-stat--static">
+                  <div className="crud-chat-profile-ig-stat crud-chat-profile-ig-stat--static">
                     <strong>{socialStats.followers}</strong>
                     <span>followers</span>
                   </div>
-                  <div className="profile-ig-stat profile-ig-stat--static">
+                  <div className="crud-chat-profile-ig-stat crud-chat-profile-ig-stat--static">
                     <strong>{socialStats.following}</strong>
                     <span>following</span>
                   </div>
                 </div>
               </div>
 
-              <div className="profile-ig-actions user-profile-sheet__actions">
+              <div className="crud-chat-profile-ig-actions crud-chat-user-sheet__actions">
                 {isFriend ? (
-                  <button type="button" className="profile-ig-btn profile-ig-btn--primary" onClick={openChat}>
+                  <button type="button" className="crud-chat-profile-ig-btn crud-chat-profile-ig-btn--primary" onClick={openChat}>
                     <FiMessageCircle aria-hidden="true" />
                     Message
                   </button>
                 ) : isPending ? (
                   <button
                     type="button"
-                    className="profile-ig-btn profile-ig-btn--requested"
+                    className="crud-chat-profile-ig-btn crud-chat-profile-ig-btn--requested"
                     onClick={cancelFriendRequest}
                     disabled={requesting}
                     title="Tap to cancel request"
@@ -212,7 +212,7 @@ const UserProfileSheet = ({
                 ) : (
                   <button
                     type="button"
-                    className="profile-ig-btn profile-ig-btn--primary"
+                    className="crud-chat-profile-ig-btn crud-chat-profile-ig-btn--primary"
                     onClick={sendFriendRequest}
                     disabled={requesting}
                   >
@@ -221,17 +221,17 @@ const UserProfileSheet = ({
                   </button>
                 )}
                 {isFriend && (
-                  <span className="user-profile-sheet__badge">Friends</span>
+                  <span className="crud-chat-user-sheet__badge">Friends</span>
                 )}
               </div>
 
-              <h1 className="profile-ig-name">{person.name}</h1>
+              <h1 className="crud-chat-profile-ig-name">{person.name}</h1>
               <PresenceStatus
                 online={isUserOnline(person._id)}
                 typing={false}
-                className="user-profile-sheet__presence"
+                className="crud-chat-user-sheet__presence"
               />
-              <p className="profile-bio profile-bio--ig">
+              <p className="crud-chat-profile-bio crud-chat-profile-bio--ig">
                 {person.bio || "No bio yet."}
               </p>
             </div>
